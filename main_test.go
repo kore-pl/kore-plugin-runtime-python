@@ -146,10 +146,10 @@ func TestServeMultiRequest(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- serve(pluginConn, testConfig(), testLogger()); _ = pluginConn.Close() }()
 
-	for i, method := range []string{"kore.ping", "python.versions", "python.venv.create"} {
+	for i, method := range []string{"kore.ping", "runtime-python.versions", "runtime-python.venv.create"} {
 		id := "id-" + string(rune('a'+i))
 		params := json.RawMessage(`{}`)
-		if method == "python.venv.create" {
+		if method == "runtime-python.venv.create" {
 			params = json.RawMessage(`{"version":"3.11","path":"envs/app"}`)
 		}
 		req := &pluginapi.Request{Type: pluginapi.TypeRequest, ID: id, ReqID: "r-" + id, Method: method, Params: params}

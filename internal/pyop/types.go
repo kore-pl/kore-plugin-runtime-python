@@ -55,20 +55,20 @@ func NewFaultError(kind FaultKind, message string) *FaultError {
 	return &FaultError{Kind: kind, Message: message}
 }
 
-// VersionResult 是 python.versions 的结构化结果。
+// VersionResult 是 runtime-python.versions 的结构化结果。
 type VersionResult struct {
 	Versions []string `json:"versions"`
 	Count    int      `json:"count"`
 	Default  string   `json:"default"`
 }
 
-// VenvCreateParams 是 python.venv.create 的显式入参形状。
+// VenvCreateParams 是 runtime-python.venv.create 的显式入参形状。
 type VenvCreateParams struct {
 	Version string `json:"version"`
 	Path    string `json:"path"`
 }
 
-// VenvCreateResult 是 python.venv.create 的结构化结果（骨架口径 applied=false）。
+// VenvCreateResult 是 runtime-python.venv.create 的结构化结果（骨架口径 applied=false）。
 type VenvCreateResult struct {
 	Version  string `json:"version"`
 	Path     string `json:"path"`

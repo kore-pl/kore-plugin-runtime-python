@@ -15,6 +15,6 @@ func TestKillFault(t *testing.T) {
 // TestKillFaultContract 单独验证 kill 故障的错误体结构完整（真实调用，非空壳）。
 func TestKillFaultContract(t *testing.T) {
 	params := json.RawMessage(`{"version":"3.11","path":"envs/app"}`)
-	_, perr := pyop.Call("python.venv.create", params, testRoot, faultExecutor{kind: pyop.FaultKill})
+	_, perr := pyop.Call("runtime-python.venv.create", params, testRoot, faultExecutor{kind: pyop.FaultKill})
 	verifyErrorContract(t, perr)
 }

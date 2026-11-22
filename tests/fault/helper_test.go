@@ -25,7 +25,7 @@ func (f faultExecutor) VenvCreate(root, rel, version string) (bool, error) {
 func assertFault(t *testing.T, kind pyop.FaultKind, wantCode, wantHint string) {
 	t.Helper()
 	params := json.RawMessage(`{"version":"3.11","path":"envs/app"}`)
-	result, perr := pyop.Call("python.venv.create", params, testRoot, faultExecutor{kind: kind})
+	result, perr := pyop.Call("runtime-python.venv.create", params, testRoot, faultExecutor{kind: kind})
 	if perr == nil {
 		t.Fatalf("注入 %s 后未返回错误（结果=%s）", kind, result)
 	}
@@ -57,7 +57,7 @@ func contains(s, sub string) bool {
 func sanityNoFault(t *testing.T) {
 	t.Helper()
 	params := json.RawMessage(`{"version":"3.11","path":"envs/app"}`)
-	result, perr := pyop.Call("python.venv.create", params, testRoot, nil)
+	result, perr := pyop.Call("runtime-python.venv.create", params, testRoot, nil)
 	if perr != nil {
 		t.Fatalf("无故障时意外返回错误: %v", perr)
 	}

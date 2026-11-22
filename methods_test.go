@@ -15,9 +15,9 @@ func TestDispatchMethods(t *testing.T) {
 		params string
 		want   string
 	}{
-		{"python.versions", `{}`, `"count":5`},
-		{"python.venv.create", `{"version":"3.12","path":"envs/app"}`, `"version":"3.12"`},
-		{"versions", `{}`, `"default":"3.11"`},
+		{"runtime-python.versions", `{}`, `"count":5`},
+		{"runtime-python.venv.create", `{"version":"3.12","path":"envs/app"}`, `"version":"3.12"`},
+		{"runtime-python.versions", `{}`, `"default":"3.11"`},
 	}
 	for _, c := range cases {
 		req := &pluginapi.Request{
@@ -44,9 +44,11 @@ func TestDispatchReject(t *testing.T) {
 		params string
 		code   string
 	}{
-		{"python.venv.create", `{"version":"3.11","path":"../../etc"}`, pluginapi.E_INVALID},
-		{"python.venv.create", `{"version":"2.7","path":"envs/app"}`, pluginapi.E_UNSUPPORTED},
-		{"python.exec", `{}`, pluginapi.E_NOTFOUND},
+		{"runtime-python.venv.create", `{"version":"3.11","path":"../../etc"}`, pluginapi.E_INVALID},
+		{"runtime-python.venv.create", `{"version":"2.7","path":"envs/app"}`, pluginapi.E_UNSUPPORTED},
+		{"runtime-python.exec", `{}`, pluginapi.E_NOTFOUND},
+		{"python.versions", `{}`, pluginapi.E_NOTFOUND}, // 旧域，域必须等于插件 id
+		{"versions", `{}`, pluginapi.E_NOTFOUND},        // 裸动词，v0.1.0 起不兼容
 	}
 	for _, c := range cases {
 		req := &pluginapi.Request{

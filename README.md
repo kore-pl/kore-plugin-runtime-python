@@ -1,17 +1,17 @@
 # kore-plugin-runtime-python
 
-Python 运行时插件（**骨架**）：提供 `python.versions` / `python.venv.create` 两个方法面，交付 venv + gunicorn 模板的参数校验与结构化结果。本仓**不真建 venv、不内置 python / gunicorn 二进制**（裁决 37 / 提案 §2.1 批 2）。
+Python 运行时插件（**骨架**）：提供 `runtime-python.versions` / `runtime-python.venv.create` 两个方法面，交付 venv + gunicorn 模板的参数校验与结构化结果。本仓**不真建 venv、不内置 python / gunicorn 二进制**（裁决 37 / 提案 §2.1 批 2）。
 
 ## 协议面
 
 - `kore.plugin.v1`，`lifecycle=lazy`，`depth_level=basic`
 - 能力声明：`system:admin`
-- 方法：`python.versions` / `python.venv.create`（同时接受裸 `versions` / `venv.create`）
+- 方法：`runtime-python.versions` / `runtime-python.venv.create`（域必须等于插件 id `runtime-python`，PLUGIN-PROTOCOL §7.2；不接受裸动词或旧 `python.` 前缀，v0.1.0 无存量用户不做兼容层）
 - 握手的 stdout 留给协议帧，日志一律写 stderr
 
 ## 方法面（骨架口径）
 
-### `python.versions`
+### `runtime-python.versions`
 
 返回 python 版本白名单与默认版本：
 
@@ -19,7 +19,7 @@ Python 运行时插件（**骨架**）：提供 `python.versions` / `python.venv
 {"versions": ["3.9", "3.10", "3.11", "3.12", "3.13"], "count": 5, "default": "3.11"}
 ```
 
-### `python.venv.create`
+### `runtime-python.venv.create`
 
 入参 `version`（须在 3.9–3.13 白名单，缺省 `3.11`）与 `path`（配置根目录内的相对路径）：
 

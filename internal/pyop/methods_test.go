@@ -12,7 +12,7 @@ const testRoot = "/var/lib/kore/runtime-python"
 
 // TestVersions 版本白名单返回 3.9-3.13 五个版本且默认 3.11。
 func TestVersions(t *testing.T) {
-	result, perr := Call("python.versions", json.RawMessage(`{}`), testRoot, nil)
+	result, perr := Call("runtime-python.versions", json.RawMessage(`{}`), testRoot, nil)
 	if perr != nil {
 		t.Fatalf("versions 意外错误: %v", perr)
 	}
@@ -47,7 +47,7 @@ func TestSupportedVersions(t *testing.T) {
 
 // TestVenvCreate 骨架口径 applied=false，gunicorn 模板标记为 true，不真建 venv。
 func TestVenvCreate(t *testing.T) {
-	result, perr := Call("python.venv.create", json.RawMessage(`{"version":"3.12","path":"envs/app"}`), testRoot, nil)
+	result, perr := Call("runtime-python.venv.create", json.RawMessage(`{"version":"3.12","path":"envs/app"}`), testRoot, nil)
 	if perr != nil {
 		t.Fatalf("venv.create 意外错误: %v", perr)
 	}
@@ -62,7 +62,7 @@ func TestVenvCreate(t *testing.T) {
 
 // TestVenvCreateDefaultVersion 缺省版本使用默认值 3.11。
 func TestVenvCreateDefaultVersion(t *testing.T) {
-	result, perr := Call("venv.create", json.RawMessage(`{"path":"envs/default"}`), testRoot, nil)
+	result, perr := Call("runtime-python.venv.create", json.RawMessage(`{"path":"envs/default"}`), testRoot, nil)
 	if perr != nil {
 		t.Fatalf("venv.create 意外错误: %v", perr)
 	}
@@ -78,12 +78,12 @@ func TestParamValidation(t *testing.T) {
 		params string
 		code   string
 	}{
-		{"python.versions", `[]`, pluginapi.E_INVALID},
-		{"python.versions", `not-json`, pluginapi.E_INVALID},
-		{"python.venv.create", `{"version":"3.11","path":"../../etc"}`, pluginapi.E_INVALID},
-		{"python.venv.create", `{"version":"3.11","path":"/etc/passwd"}`, pluginapi.E_INVALID},
-		{"python.venv.create", `{"version":"3.11","path":"envs\\app"}`, pluginapi.E_INVALID},
-		{"python.venv.create", `{"version":"2.7","path":"envs/app"}`, pluginapi.E_UNSUPPORTED},
+		{"runtime-python.versions", `[]`, pluginapi.E_INVALID},
+		{"runtime-python.versions", `not-json`, pluginapi.E_INVALID},
+		{"runtime-python.venv.create", `{"version":"3.11","path":"../../etc"}`, pluginapi.E_INVALID},
+		{"runtime-python.venv.create", `{"version":"3.11","path":"/etc/passwd"}`, pluginapi.E_INVALID},
+		{"runtime-python.venv.create", `{"version":"3.11","path":"envs\\app"}`, pluginapi.E_INVALID},
+		{"runtime-python.venv.create", `{"version":"2.7","path":"envs/app"}`, pluginapi.E_UNSUPPORTED},
 	}
 	for _, c := range cases {
 		_, perr := Call(c.method, json.RawMessage(c.params), testRoot, nil)
@@ -93,11 +93,13 @@ func TestParamValidation(t *testing.T) {
 	}
 }
 
-// TestUnknownMethod 未知方法返回 E_NOTFOUND。
+// TestUnknownMethod 未知方法、旧域与裸动词一律返回 E_NOTFOUND（v0.1.0 起不兼容裸动词）。
 func TestUnknownMethod(t *testing.T) {
-	_, perr := Call("python.exec", json.RawMessage(`{}`), testRoot, nil)
-	if perr == nil || perr.Code != pluginapi.E_NOTFOUND {
-		t.Fatalf("未知方法错误=%v，期望 E_NOTFOUND", perr)
+	for _, method := range []string{"runtime-python.exec", "python.versions", "versions", "venv.create"} {
+		_, perr := Call(method, json.RawMessage(`{}`), testRoot, nil)
+		if perr == nil || perr.Code != pluginapi.E_NOTFOUND {
+			t.Fatalf("Call(%q) 错误=%v，期望 E_NOTFOUND", method, perr)
+		}
 	}
 }
 

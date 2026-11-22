@@ -6,7 +6,7 @@ import (
 	"github.com/pengtang1024/kore/pkg/pluginapi"
 )
 
-// callVenvCreate 处理 python.venv.create：校验版本白名单与路径后返回结构化结果，
+// callVenvCreate 处理 runtime-python.venv.create：校验版本白名单与路径后返回结构化结果，
 // 骨架口径 applied=false，不真建 venv、不内置 python/gunicorn 二进制。
 func callVenvCreate(raw json.RawMessage, root string, exec Executor) (json.RawMessage, *pluginapi.Error) {
 	var p VenvCreateParams
