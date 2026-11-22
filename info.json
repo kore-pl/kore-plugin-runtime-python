@@ -1,0 +1,17 @@
+{
+  "id": "runtime-python",
+  "name": "Python 运行时插件",
+  "version": "0.1.0",
+  "protocol": "kore.plugin.v1",
+  "lifecycle": "lazy",
+  "depth_level": "basic",
+  "entry": "bin/runtime-python",
+  "capabilities": ["system:admin"],
+  "triggers": [],
+  "requires_kore": ">=0.1.0 <0.2.0",
+  "resources": {"memory_mb": 6, "cpu_quota": "15%", "pids_max": 16},
+  "depends_on": [],
+  "conflicts": [],
+  "scenario_tags": ["app"],
+  "size_bytes": 0
+}
