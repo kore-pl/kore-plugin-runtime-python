@@ -1,7 +1,7 @@
-// Package main 是 kore 的 runtime-python 插件：Python 运行时的方法面骨架。
+// Package main 是 kore 的 runtime-python 插件：Python 运行时的检测与只读管理方法面。
 //
-// runtime-python 只做协议握手 + 参数校验 + 结构化结果，不真建 venv、
-// 不内置 python / gunicorn 任何二进制（裁决37 / 提案 §2.1 批2）。
+// runtime-python 做协议握手 + 真实探测宿主 Python（PATH / 常见路径 / pyenv / conda）、
+// 单解释器详情、Python 项目扫描与健康检查；不内置任何 python 二进制、不执行项目脚本、不写宿主文件。
 //
 // 协议面（kore.plugin.v1）：UDS → kore.hello 握手 → 会话循环读 request、
 // 按 method 分发并回 response；stdout 留给协议，日志一律写 stderr。

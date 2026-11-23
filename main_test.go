@@ -16,7 +16,7 @@ import (
 func testConfig() config {
 	return config{
 		id:           "runtime-python",
-		version:      "0.1.0",
+		version:      "0.2.0",
 		requiresKore: ">=0.1.0 <0.2.0",
 		capabilities: []string{"system:admin"},
 		root:         "/var/lib/kore/runtime-python",
@@ -78,7 +78,7 @@ func TestHandshake(t *testing.T) {
 	if params.PluginID != "runtime-python" || params.ID != "runtime-python" {
 		t.Fatalf("plugin_id/id=%q/%q，期望 runtime-python", params.PluginID, params.ID)
 	}
-	if params.Protocol != pluginapi.Protocol || params.Version != "0.1.0" {
+	if params.Protocol != pluginapi.Protocol || params.Version != "0.2.0" {
 		t.Fatalf("protocol/version=%q/%q 不符合 §5", params.Protocol, params.Version)
 	}
 	result, err := json.Marshal(helloResult{OK: true, Protocol: pluginapi.Protocol})
@@ -146,12 +146,9 @@ func TestServeMultiRequest(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- serve(pluginConn, testConfig(), testLogger()); _ = pluginConn.Close() }()
 
-	for i, method := range []string{"kore.ping", "runtime-python.versions", "runtime-python.venv.create"} {
+	for i, method := range []string{"kore.ping", "runtime-python.versions", "runtime-python.doctor"} {
 		id := "id-" + string(rune('a'+i))
 		params := json.RawMessage(`{}`)
-		if method == "runtime-python.venv.create" {
-			params = json.RawMessage(`{"version":"3.11","path":"envs/app"}`)
-		}
 		req := &pluginapi.Request{Type: pluginapi.TypeRequest, ID: id, ReqID: "r-" + id, Method: method, Params: params}
 		if err := pluginapi.WriteJSON(kernelConn, req); err != nil {
 			t.Fatalf("写 %s 请求失败: %v", method, err)
@@ -169,5 +166,20 @@ func TestServeMultiRequest(t *testing.T) {
 	_ = readFrame(t, kernelConn) // 配对读 shutdown 响应帧
 	if err := <-done; err != nil {
 		t.Fatalf("serve 返回错误: %v", err)
+	}
+}
+
+// TestLoadConfigEmbedded 内嵌清单的 id / version / capability 与发布口径一致。
+func TestLoadConfigEmbedded(t *testing.T) {
+	t.Setenv("KORE_PLUGIN_SOCK", "/tmp/kore-test.sock")
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig 失败: %v", err)
+	}
+	if cfg.id != "runtime-python" || cfg.version != "0.2.0" {
+		t.Fatalf("id/version=%q/%q", cfg.id, cfg.version)
+	}
+	if len(cfg.capabilities) != 1 || cfg.capabilities[0] != "system:admin" {
+		t.Fatalf("capabilities=%v", cfg.capabilities)
 	}
 }

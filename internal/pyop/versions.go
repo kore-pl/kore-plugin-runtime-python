@@ -6,15 +6,24 @@ import (
 	"github.com/pengtang1024/kore/pkg/pluginapi"
 )
 
-// versionsParams 是 runtime-python.versions 的入参形状（当前无必填字段，允许 {}）。
-type versionsParams struct{}
-
-// callVersions 处理 runtime-python.versions：返回白名单版本列表与默认版本。
-func callVersions(raw json.RawMessage) (json.RawMessage, *pluginapi.Error) {
+// callVersions 处理 runtime-python.versions：无参数，返回宿主全部已安装 Python。
+// 未检测到任何 Python 时不报错，返回空数组 + count=0 + hint。
+func callVersions(params json.RawMessage, exec Executor) (json.RawMessage, *pluginapi.Error) {
 	var p versionsParams
-	if perr := decodeParams(raw, &p); perr != nil {
-		return nil, perr
+	if err := strictUnmarshal(params, &p); err != nil {
+		return nil, invalid("runtime-python.versions 参数非法: " + err.Error())
 	}
-	versions := SupportedVersions()
-	return encode(VersionResult{Versions: versions, Count: len(versions), Default: DefaultVersion()})
+	result, err := exec.Versions()
+	if err != nil {
+		return nil, classify(err)
+	}
+	if result.Versions == nil {
+		result.Versions = []PythonVersion{}
+	}
+	result.Count = len(result.Versions)
+	if result.Count == 0 {
+		result.DefaultVersion = ""
+		result.Hint = NoPythonHint
+	}
+	return marshal(result)
 }

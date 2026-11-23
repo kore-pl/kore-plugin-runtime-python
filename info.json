@@ -1,7 +1,7 @@
 {
   "id": "runtime-python",
   "name": "Python 运行时插件",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "protocol": "kore.plugin.v1",
   "lifecycle": "lazy",
   "depth_level": "basic",
@@ -13,5 +13,5 @@
   "depends_on": [],
   "conflicts": [],
   "scenario_tags": ["app"],
-  "size_bytes": 1267456
+  "size_bytes": 1507409
 }
