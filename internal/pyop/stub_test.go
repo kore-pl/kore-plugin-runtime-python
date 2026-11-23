@@ -21,6 +21,9 @@ type stubExecutor struct {
 	doctor    DoctorResult
 	doctorErr error
 	doctorArg string
+
+	paths    PathsResult
+	pathsErr error
 }
 
 func (s *stubExecutor) Versions() (VersionsResult, error) { return s.versions, s.versionsErr }
@@ -39,6 +42,8 @@ func (s *stubExecutor) Doctor(root string) (DoctorResult, error) {
 	s.doctorArg = root
 	return s.doctor, s.doctorErr
 }
+
+func (s *stubExecutor) Paths() (PathsResult, error) { return s.paths, s.pathsErr }
 
 // fakeRunner 按「命令 + 参数」返回预设输出，用于在不碰宿主环境的前提下验证探测逻辑。
 type fakeRunner struct {

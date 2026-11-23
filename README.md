@@ -5,8 +5,9 @@ Python 运行时插件（**基础级**）：真实检测宿主已安装的 Pytho
 
 ## 协议面
 
-- `kore.plugin.v1`，`lifecycle=lazy`，`depth_level=basic`，能力声明 `system:admin`
-- 方法：`runtime-python.versions` / `runtime-python.info` / `runtime-python.projects` / `runtime-python.doctor`
+- `kore.plugin.v1`，`lifecycle=lazy`，`depth_level=basic`，插件级能力 `system:admin`（仅作未声明方法的 fail-closed 回退）
+- **方法级能力**（`method_capabilities`）：5 个方法全为 `system:read`——只读探测无需管理权限，内核据此不再把只读调用计入写审计
+- 方法：`runtime-python.versions` / `runtime-python.info` / `runtime-python.projects` / `runtime-python.doctor` / `runtime-python.paths`
   （域必须等于插件 id `runtime-python`，PLUGIN-PROTOCOL §7.2；不接受裸动词或旧 `python.` 前缀）
 - 握手的 stdout 留给协议帧，日志一律写 stderr；未知方法 `E_NOTFOUND`，参数非法 `E_INVALID`
 
@@ -22,7 +23,9 @@ conda / miniconda / anaconda（`~/miniconda3`、`~/anaconda3`、`~/.conda/envs/*
 ```json
 {
   "versions": [
-    {"version": "3.14.4", "path": "/usr/bin/python3", "source": "path", "is_default": true, "implementation": "CPython"}
+    {"version": "3.14.4", "path": "/usr/bin/python3", "source": "path", "is_default": true,
+     "implementation": "CPython", "bin_dir": "/usr/bin",
+     "package_manager": "pip", "package_manager_path": "/usr/bin/pip3"}
   ],
   "default_version": "3.14.4",
   "count": 1
@@ -30,6 +33,8 @@ conda / miniconda / anaconda（`~/miniconda3`、`~/anaconda3`、`~/.conda/envs/*
 ```
 
 - `source` ∈ `path` / `known_path` / `pyenv` / `conda`；`implementation` ∈ `CPython` / `PyPy`
+- `bin_dir` 是安装目录；`package_manager` 固定 `pip`；`package_manager_path` 优先同目录 `pip3` / `pip`、
+  其次 PATH（**只做文件查找，不执行命令**，不会为每个解释器额外拉起进程）
 - `is_default` 由 `which python3`（PATH 解析，缺失时退回 `which python`）决定，最多一个
 - **未检测到 Python 不报错**：`versions=[]`、`count=0`、`default_version=""`，并给固定 `hint`：
   `未检测到 Python，可用系统包管理器安装 python3，或用 pyenv / conda`
@@ -136,6 +141,36 @@ pip / site-packages / venv 单项探测失败只让对应字段为空 / 0 / fals
 - **零第三方依赖**：`go.mod` 只依赖 `kore/pkg/pluginapi`；TOML 走行级正则，见上节
 - **零轮询**：无 ticker / 后台 goroutine，全部探测都在单次请求内完成
 
+### `runtime-python.paths`（无参数）
+
+解释「**为什么用到了这个解释器**」：PATH 原始顺序、候选可执行名解析结果、默认解释器的解析链，
+以及按探测优先级排列的发现来源。只读：复用 `versions` 的同一套候选收集逻辑与一次 `--version`，不写宿主。
+
+```json
+{
+  "path_env": ["/usr/local/sbin", "/usr/local/bin", "/usr/bin"],
+  "executables": [
+    {"name": "python3", "path": "/usr/bin/python3", "found": true},
+    {"name": "python", "path": "", "found": false}
+  ],
+  "default": {
+    "command": "python3", "path": "/usr/bin/python3", "real_path": "/usr/bin/python3.12",
+    "version": "3.12.3", "implementation": "CPython", "bin_dir": "/usr/bin",
+    "package_manager": "pip", "package_manager_path": "/usr/bin/pip3",
+    "found": true
+  },
+  "search_order": [
+    {"source": "path", "paths": ["/usr/bin/python3"]},
+    {"source": "known_path", "paths": ["/usr/local/bin/python3"]},
+    {"source": "pyenv", "paths": ["/root/.pyenv/versions/3.12.3/bin/python3"]}
+  ]
+}
+```
+
+- `search_order` 的条目顺序 = 实际探测优先级（PATH → 常见路径 → pyenv / conda 通配），只列**真实存在**的来源
+- 未检测到 Python 时不报错：`default.found=false`、`search_order=[]`，并给与 `versions` 相同的 `hint`
+- 装了 Python 但 PATH 上找不到 `python3` / `python` 时，`hint` 会说明是「PATH 上没找到」而不是「未检测到 Python」
+
 ## 测试
 
 - 单元：版本解析（`Python 3.14.4` / PyPy 横幅 / `Python 2.7.18`）、pip 版本与 `pip list` 计数、
@@ -153,7 +188,7 @@ pip / site-packages / venv 单项探测失败只让对应字段为空 / 0 / fals
 ```bash
 gofmt -l . && go vet ./... && go test -timeout 200s ./...
 make build && make dist
-tar -tzf dist/runtime-python-0.2.0.tar.gz | head -1   # info.json
+tar -tzf dist/runtime-python-0.2.2.tar.gz | head -1   # info.json
 ```
 
 `dist` 使用确定性参数归档（`--sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner` + `gzip -9n`），

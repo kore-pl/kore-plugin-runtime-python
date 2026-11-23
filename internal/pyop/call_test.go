@@ -170,3 +170,37 @@ func TestCallUnknownMethod(t *testing.T) {
 		}
 	}
 }
+
+// TestCallPathsNormalizes 空结果归一：数组字段不为 null，未找到默认解释器时补 hint。
+func TestCallPathsNormalizes(t *testing.T) {
+	exec := &stubExecutor{paths: PathsResult{}}
+	raw, perr := Call("runtime-python.paths", json.RawMessage(`{}`), "", exec)
+	if perr != nil {
+		t.Fatalf("paths 意外错误: %v", perr)
+	}
+	text := string(raw)
+	for _, want := range []string{`"path_env":[]`, `"executables":[]`, `"search_order":[]`, `"hint":"`} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("结果=%s，缺少 %q", text, want)
+		}
+	}
+}
+
+// TestCallPathsRejectsBadParams 参数必须是 JSON 对象、拒绝未知字段。
+func TestCallPathsRejectsBadParams(t *testing.T) {
+	for _, params := range []string{`[]`, `null`, ``, `{"verbose":true}`} {
+		_, perr := Call("runtime-python.paths", json.RawMessage(params), "", &stubExecutor{})
+		if perr == nil || perr.Code != pluginapi.E_INVALID {
+			t.Fatalf("params=%q 错误=%v，期望 E_INVALID", params, perr)
+		}
+	}
+}
+
+// TestCallPathsPropagatesFault 执行面故障映射为协议错误码（paths 与其余方法同一口径）。
+func TestCallPathsPropagatesFault(t *testing.T) {
+	exec := &stubExecutor{pathsErr: NewFaultError(FaultTimeout, "paths 超时")}
+	_, perr := Call("runtime-python.paths", json.RawMessage(`{}`), "", exec)
+	if perr == nil || perr.Code != pluginapi.E_UPSTREAM {
+		t.Fatalf("错误=%v，期望 E_UPSTREAM", perr)
+	}
+}

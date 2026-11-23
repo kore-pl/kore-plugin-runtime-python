@@ -166,11 +166,15 @@ func (r *Runtime) detect() []PythonVersion {
 			continue
 		}
 		seen[real] = true
+		binDir := filepath.Dir(item.path)
 		versions = append(versions, PythonVersion{
-			Version:        version,
-			Path:           item.path,
-			Source:         item.source,
-			Implementation: implementation,
+			Version:            version,
+			Path:               item.path,
+			Source:             item.source,
+			Implementation:     implementation,
+			BinDir:             binDir,
+			PackageManager:     PackageManager,
+			PackageManagerPath: r.packageManagerPath(binDir),
 		})
 	}
 	defaultReal := r.defaultRealPath()
@@ -197,7 +201,7 @@ func (r *Runtime) candidates() []candidate {
 		seen[cleaned] = true
 		out = append(out, candidate{path: cleaned, source: source})
 	}
-	for _, name := range []string{"python3", "python"} {
+	for _, name := range runtimeBinaryNames {
 		if path, err := r.lookPath(name); err == nil {
 			add(path, SourcePath)
 		}
@@ -259,7 +263,7 @@ func resolveCandidate(path string) (string, bool) {
 // defaultRealPath 按 `which python3` 语义（PATH 解析）返回默认解释器真实路径；
 // PATH 里没有 python3 时退回 which python。
 func (r *Runtime) defaultRealPath() string {
-	for _, name := range []string{"python3", "python"} {
+	for _, name := range runtimeBinaryNames {
 		path, err := r.lookPath(name)
 		if err != nil || path == "" {
 			continue
@@ -269,6 +273,110 @@ func (r *Runtime) defaultRealPath() string {
 		}
 	}
 	return ""
+}
+
+// packageManagerPath 返回与当前解释器配套的包管理器路径：同目录优先，其次 PATH。
+// 只做文件查找（os.Stat / exec.LookPath），不执行任何命令。
+func (r *Runtime) packageManagerPath(binDir string) string {
+	for _, name := range packageManagerNames {
+		sibling := filepath.Join(binDir, name)
+		if info, err := os.Stat(sibling); err == nil && !info.IsDir() {
+			return sibling
+		}
+	}
+	for _, name := range packageManagerNames {
+		if path, err := r.lookPath(name); err == nil && path != "" {
+			return path
+		}
+	}
+	return ""
+}
+
+// Paths 返回 PATH 解析、默认解释器解析链与按优先级排列的发现来源。
+// 只读：复用 candidates()/lookPath/glob 与一次 `--version`，不修改宿主状态。
+func (r *Runtime) Paths() (PathsResult, error) {
+	pathEnv := ""
+	if r.getenv != nil {
+		pathEnv = r.getenv("PATH")
+	}
+	result := PathsResult{
+		PathEnv:     splitPathEnv(pathEnv),
+		Executables: make([]PathExecutable, 0, len(runtimeBinaryNames)),
+		SearchOrder: make([]SearchSource, 0, 6),
+	}
+	for _, name := range runtimeBinaryNames {
+		entry := PathExecutable{Name: name}
+		if path, err := r.lookPath(name); err == nil && path != "" {
+			entry.Path = path
+			entry.Found = true
+		}
+		result.Executables = append(result.Executables, entry)
+	}
+	result.Default = r.defaultRuntime()
+	result.SearchOrder = r.searchOrder()
+	if !result.Default.Found {
+		result.Hint = NoPythonHint
+		if len(result.SearchOrder) > 0 {
+			result.Hint = PathDefaultHint
+		}
+	}
+	return result, nil
+}
+
+// defaultRuntime 解析当前默认解释器（which python3 语义）并补齐版本与包管理器。
+func (r *Runtime) defaultRuntime() DefaultRuntime {
+	for _, command := range runtimeBinaryNames {
+		path, err := r.lookPath(command)
+		if err != nil || path == "" {
+			continue
+		}
+		entry := DefaultRuntime{Command: command, Path: path, Found: true}
+		if real, ok := resolveCandidate(path); ok {
+			entry.RealPath = real
+		}
+		if version, implementation, verr := r.pythonVersion(path); verr == nil {
+			entry.Version = version
+			entry.Implementation = implementation
+		}
+		entry.BinDir = filepath.Dir(path)
+		entry.PackageManager = PackageManager
+		entry.PackageManagerPath = r.packageManagerPath(entry.BinDir)
+		return entry
+	}
+	return DefaultRuntime{Command: runtimeBinaryNames[0]}
+}
+
+// searchOrder 把 candidates() 按来源分组（保持探测顺序），只保留真实存在的命中路径。
+func (r *Runtime) searchOrder() []SearchSource {
+	order := make([]SearchSource, 0, 6)
+	index := map[Source]int{}
+	for _, item := range r.candidates() {
+		if _, ok := resolveCandidate(item.path); !ok {
+			continue // 固定已知路径不一定存在：search_order 只列命中的来源
+		}
+		if position, ok := index[item.source]; ok {
+			order[position].Paths = append(order[position].Paths, item.path)
+			continue
+		}
+		index[item.source] = len(order)
+		order = append(order, SearchSource{Source: item.source, Paths: []string{item.path}})
+	}
+	return order
+}
+
+// splitPathEnv 按平台分隔符拆分 PATH，丢弃空项（保留原始顺序）。
+func splitPathEnv(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return []string{}
+	}
+	parts := strings.Split(raw, string(os.PathListSeparator))
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 // pythonVersion 执行 `<python> --version`，返回归一化版本与实现名。

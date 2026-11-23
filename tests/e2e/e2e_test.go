@@ -292,6 +292,16 @@ func (emptyExecutor) Doctor(string) (pyop.DoctorResult, error) {
 	return pyop.DoctorResult{Checks: []pyop.Check{{Name: "python", Status: pyop.StatusFail, Detail: pyop.NoPythonHint}}}, nil
 }
 
+func (emptyExecutor) Paths() (pyop.PathsResult, error) {
+	return pyop.PathsResult{
+		PathEnv:     []string{"/usr/bin"},
+		Executables: []pyop.PathExecutable{{Name: "python3"}},
+		Default:     pyop.DefaultRuntime{Command: "python3"},
+		SearchOrder: []pyop.SearchSource{},
+		Hint:        pyop.NoPythonHint,
+	}, nil
+}
+
 // sameFile 判定两个路径是否指向同一文件（跟随符号链接）。
 func sameFile(left, right string) error {
 	leftReal, err := filepath.EvalSymlinks(left)

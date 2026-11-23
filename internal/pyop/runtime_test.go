@@ -115,6 +115,7 @@ type fakeLayout struct {
 	pathPython  string
 	knownPython string
 	pyenvPython string
+	pipPath     string
 	tools       map[string]string
 	runner      fakeRunner
 }
@@ -132,6 +133,8 @@ func newFakeLayout(t *testing.T) fakeLayout {
 	}
 	writeFile(t, layout.pathPython, "#!/bin/sh\n")
 	writeFile(t, layout.knownPython, "#!/bin/sh\n")
+	layout.pipPath = filepath.Join(base, "bin", "pip3")
+	writeFile(t, layout.pipPath, "#!/bin/sh\n")
 	for _, name := range optionalTools {
 		path := filepath.Join(base, "bin", name)
 		writeFile(t, path, "#!/bin/sh\n")
@@ -179,6 +182,8 @@ func (l fakeLayout) lookPath(name string) (string, error) {
 	switch name {
 	case "python3", "python":
 		return l.pathPython, nil
+	case "pip3", "pip":
+		return l.pipPath, nil
 	}
 	if path, ok := l.tools[name]; ok {
 		return path, nil
@@ -438,5 +443,122 @@ func TestDirWritableAccess(t *testing.T) {
 	writable, reason = dirWritable(t.TempDir())
 	if !writable {
 		t.Fatalf("临时目录应可写（reason=%s）", reason)
+	}
+}
+
+// TestDetectInstallMetadata versions 增强字段：安装目录、包管理器与包管理器路径。
+func TestDetectInstallMetadata(t *testing.T) {
+	layout := newFakeLayout(t)
+	result, err := layout.runtime(os.Getenv).Versions()
+	if err != nil {
+		t.Fatalf("Versions 失败: %v", err)
+	}
+	if result.Count != 2 {
+		t.Fatalf("期望 2 个解释器，实际 %+v", result.Versions)
+	}
+	for _, item := range result.Versions {
+		if item.BinDir != filepath.Dir(item.Path) {
+			t.Fatalf("%s 的 bin_dir=%q，期望 %q", item.Version, item.BinDir, filepath.Dir(item.Path))
+		}
+		if item.PackageManager != PackageManager {
+			t.Fatalf("%s 的 package_manager=%q，期望 %q", item.Version, item.PackageManager, PackageManager)
+		}
+		if item.PackageManagerPath != layout.pipPath {
+			t.Fatalf("%s 的 package_manager_path=%q，期望 %q（同目录或 PATH 回退）",
+				item.Version, item.PackageManagerPath, layout.pipPath)
+		}
+	}
+}
+
+// TestPathsReportsSearchOrderAndDefault paths：PATH 顺序、可执行名解析、默认解析链与来源顺序。
+func TestPathsReportsSearchOrderAndDefault(t *testing.T) {
+	layout := newFakeLayout(t)
+	runtime := layout.runtime(func(string) string { return "/usr/local/bin:/usr/bin" })
+	result, err := runtime.Paths()
+	if err != nil {
+		t.Fatalf("Paths 失败: %v", err)
+	}
+	if len(result.PathEnv) != 2 || result.PathEnv[0] != "/usr/local/bin" || result.PathEnv[1] != "/usr/bin" {
+		t.Fatalf("path_env=%v", result.PathEnv)
+	}
+	if len(result.Executables) != 2 {
+		t.Fatalf("executables 应覆盖 python3/python: %+v", result.Executables)
+	}
+	for _, entry := range result.Executables {
+		if !entry.Found || entry.Path != layout.pathPython {
+			t.Fatalf("可执行名解析异常: %+v", entry)
+		}
+	}
+	if !result.Default.Found || result.Default.Command != "python3" || result.Default.Path != layout.pathPython {
+		t.Fatalf("default=%+v", result.Default)
+	}
+	if result.Default.Version != "3.12.3" || result.Default.Implementation != ImplementationCPython {
+		t.Fatalf("default 版本/实现异常: %+v", result.Default)
+	}
+	if result.Default.PackageManagerPath != layout.pipPath {
+		t.Fatalf("default.package_manager_path=%q", result.Default.PackageManagerPath)
+	}
+	if len(result.SearchOrder) != 3 {
+		t.Fatalf("search_order=%+v，期望 path/known_path/pyenv 三条", result.SearchOrder)
+	}
+	if result.SearchOrder[0].Source != SourcePath || result.SearchOrder[0].Paths[0] != layout.pathPython {
+		t.Fatalf("第一条来源异常: %+v", result.SearchOrder[0])
+	}
+	if result.SearchOrder[1].Source != SourceKnownPath || result.SearchOrder[2].Source != SourcePyenv {
+		t.Fatalf("来源顺序异常: %+v", result.SearchOrder)
+	}
+	// 一致性地基：candidates() 的每条路径都必须出现在 search_order 里。
+	listed := map[string]bool{}
+	for _, source := range result.SearchOrder {
+		for _, path := range source.Paths {
+			listed[path] = true
+		}
+	}
+	for _, item := range runtime.candidates() {
+		if !listed[item.path] {
+			t.Fatalf("候选 %s（source=%s）未出现在 search_order", item.path, item.source)
+		}
+	}
+}
+
+// TestPathsWithoutPython 未安装 Python 时 paths 不报错：default.found=false + hint。
+func TestPathsWithoutPython(t *testing.T) {
+	runtime := &Runtime{
+		runner:     fakeRunner{responses: map[string]string{}, failures: map[string]error{}},
+		lookPath:   func(string) (string, error) { return "", errors.New("not found") },
+		homeDir:    func() (string, error) { return "", errors.New("no home") },
+		glob:       func(string) ([]string, error) { return nil, nil },
+		getenv:     func(string) string { return "" },
+		knownPaths: nil,
+	}
+	result, err := runtime.Paths()
+	if err != nil {
+		t.Fatalf("Paths 失败: %v", err)
+	}
+	if result.Default.Found || result.Hint != NoPythonHint {
+		t.Fatalf("未安装时结果异常: %+v", result)
+	}
+	if len(result.PathEnv) != 0 || len(result.SearchOrder) != 0 {
+		t.Fatalf("空环境结果异常: %+v", result)
+	}
+}
+
+// TestPathsInstalledButNotOnPath 装了 Python 但 PATH 上没有 python3：hint 指向 PATH 问题而非「未检测到」。
+func TestPathsInstalledButNotOnPath(t *testing.T) {
+	layout := newFakeLayout(t)
+	runtime := layout.runtime(func(string) string { return "/nonexistent" })
+	runtime.lookPath = func(string) (string, error) { return "", errors.New("not found") }
+	result, err := runtime.Paths()
+	if err != nil {
+		t.Fatalf("Paths 失败: %v", err)
+	}
+	if result.Default.Found {
+		t.Fatalf("PATH 无 python3 时不应解析出默认条目: %+v", result.Default)
+	}
+	if len(result.SearchOrder) == 0 {
+		t.Fatalf("known/pyenv 候选存在时 search_order 不应为空")
+	}
+	if result.Hint != PathDefaultHint {
+		t.Fatalf("hint=%q，期望 %q", result.Hint, PathDefaultHint)
 	}
 }

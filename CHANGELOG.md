@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.2 (2026-11-23)
+
+- feat: 方法级能力声明（§3.5 #12）——`runtime-python.versions` / `info` / `projects` / `doctor` / `paths` 全部 `system:read`，
+  只读方法不再按插件级 `system:admin` 计入写审计；插件级能力保持不变，作为未声明方法的 fail-closed 回退
+- feat: `runtime-python.versions` 增强元信息——每项新增 `bin_dir`（安装目录）、`package_manager`（固定 `pip`）、
+  `package_manager_path`（同目录 pip3/pip 优先、其次 PATH，**只做文件查找不执行命令**）
+- feat: 新增 `runtime-python.paths`——返回 `path_env`（PATH 原始顺序）、`executables`（python3/python 解析结果）、
+  `default`（which python3 解析链 + 版本 + 实现 + 包管理器）与 `search_order`（按探测优先级列出的真实来源），
+  用于排查「为什么用到了这个解释器」；未检测到 Python 时 `default.found=false` + 固定 hint，不报错
+- test: 新增 capability 双向校验（声明 vs 分发表 vs 内核键格式/值域）、增强字段与 `paths` 单测、
+  二进制最小 PATH 链路补 `paths` 断言；故障注入扩到五个方法
+- docs: README 补 5 方法契约、增强字段与 `paths` 口径、方法级能力说明
+- note: **进程守护 / 扩展管理本轮不做**——守护进程要写 systemd unit、装包要写全局 site-packages，
+  都是写操作且需要 root，必须走 `root_actions` + 不可逆确认，另立任务实现；本轮只交付只读增强
+- build: 版本 0.2.2（只加元数据 + 只读增强 → patch），`info.json` / `manifest.json` 同步
+
+
 ## 0.2.0 (2026-11-23)
 
 - feat: `runtime-python.versions` 改为**真实检测**宿主 Python 安装（PATH 的 `python3` / `python`、

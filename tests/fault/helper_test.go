@@ -32,7 +32,11 @@ func (f faultExecutor) Doctor(string) (pyop.DoctorResult, error) {
 	return pyop.DoctorResult{}, pyop.NewFaultError(f.kind, "doctor 执行面故障")
 }
 
-// noFaultExecutor 返回最小合法结果，供 sanity 断言"不注入故障时四方法成功"。
+func (f faultExecutor) Paths() (pyop.PathsResult, error) {
+	return pyop.PathsResult{}, pyop.NewFaultError(f.kind, "paths 执行面故障")
+}
+
+// noFaultExecutor 返回最小合法结果，供 sanity 断言"不注入故障时五方法成功"。
 // 不依赖宿主是否安装 Python，保证故障断言不是环境驱动的假通过。
 type noFaultExecutor struct{}
 
@@ -62,6 +66,15 @@ func (noFaultExecutor) Doctor(string) (pyop.DoctorResult, error) {
 	return pyop.DoctorResult{Checks: []pyop.Check{{Name: "python", Status: pyop.StatusPass, Detail: "ok"}}}, nil
 }
 
+func (noFaultExecutor) Paths() (pyop.PathsResult, error) {
+	return pyop.PathsResult{
+		PathEnv:     []string{"/usr/bin"},
+		Executables: []pyop.PathExecutable{{Name: "python3", Path: "/usr/bin/python3", Found: true}},
+		Default:     pyop.DefaultRuntime{Command: "python3", Found: true},
+		SearchOrder: []pyop.SearchSource{{Source: pyop.SourcePath, Paths: []string{"/usr/bin/python3"}}},
+	}, nil
+}
+
 // methodCase 是一个待注入故障的方法及其合法参数（root 由 t.TempDir 动态生成）。
 type methodCase struct {
 	name   string
@@ -69,7 +82,7 @@ type methodCase struct {
 	params func(root string) string
 }
 
-// methods 覆盖四个方法；root 使用状态目录白名单（t.TempDir 作为 <state>）。
+// methods 覆盖五个方法；root 使用状态目录白名单（t.TempDir 作为 <state>）。
 var methods = []methodCase{
 	{"versions", "runtime-python.versions", func(string) string { return `{}` }},
 	{"info", "runtime-python.info", func(string) string { return `{}` }},
@@ -79,6 +92,7 @@ var methods = []methodCase{
 	{"doctor", "runtime-python.doctor", func(root string) string {
 		return `{"root":` + jsonString(root) + `}`
 	}},
+	{"paths", "runtime-python.paths", func(string) string { return `{}` }},
 }
 
 // assertFault 对每个方法注入故障，断言返回 nil 结果 + 预期协议错误码与类别关键词。

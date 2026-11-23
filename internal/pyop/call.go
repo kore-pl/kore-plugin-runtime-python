@@ -30,6 +30,8 @@ func Call(method string, params json.RawMessage, stateRoot string, exec Executor
 		return callProjects(params, exec, stateRoot)
 	case "doctor":
 		return callDoctor(params, exec, stateRoot)
+	case "paths":
+		return callPaths(params, exec)
 	}
 	return nil, errNotFound(method)
 }
@@ -44,7 +46,7 @@ func businessVerb(method string) (string, bool) {
 		return "", false
 	}
 	switch verb {
-	case "versions", "info", "projects", "doctor":
+	case "versions", "info", "projects", "doctor", "paths":
 		return verb, true
 	}
 	return "", false

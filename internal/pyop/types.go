@@ -26,7 +26,17 @@ const (
 	MaxScanEntries = 200
 	// NoPythonHint 是未检测到 Python 时的降级提示（versions 不报错）。
 	NoPythonHint = "未检测到 Python，可用系统包管理器安装 python3，或用 pyenv / conda"
+	// PackageManager 是本插件关联的包管理器名（versions[].package_manager 的固定取值）。
+	PackageManager = "pip"
+	// PathDefaultHint 是「装了 Python 但 PATH 上没有 python3/python」时的默认版本解析提示。
+	PathDefaultHint = "PATH 上未找到 python3/python；已安装的 Python 仍在 versions 列表中，但无法确定默认版本，请检查 PATH"
 )
+
+// runtimeBinaryNames 是 PATH 解析与 paths 方法共用的候选可执行文件名（按优先级）。
+var runtimeBinaryNames = []string{"python3", "python"}
+
+// packageManagerNames 是包管理器可执行文件名（同目录优先，其次 PATH）。
+var packageManagerNames = []string{"pip3", "pip"}
 
 // Source 标识一个 Python 解释器的发现渠道。
 type Source string
@@ -108,15 +118,21 @@ type Executor interface {
 	Info(version string) (InfoResult, error)
 	Projects(root string) (ProjectsResult, error)
 	Doctor(root string) (DoctorResult, error)
+	Paths() (PathsResult, error)
 }
 
 // PythonVersion 是一个已安装的 Python 解释器。
+// bin_dir 是安装目录（path 的父目录），package_manager 固定为 pip，
+// package_manager_path 优先取同目录 pip3/pip、其次 PATH 上的 pip3/pip（只查找，不执行命令）。
 type PythonVersion struct {
-	Version        string `json:"version"`
-	Path           string `json:"path"`
-	Source         Source `json:"source"`
-	IsDefault      bool   `json:"is_default"`
-	Implementation string `json:"implementation,omitempty"`
+	Version            string `json:"version"`
+	Path               string `json:"path"`
+	Source             Source `json:"source"`
+	IsDefault          bool   `json:"is_default"`
+	Implementation     string `json:"implementation,omitempty"`
+	BinDir             string `json:"bin_dir"`
+	PackageManager     string `json:"package_manager"`
+	PackageManagerPath string `json:"package_manager_path"`
 }
 
 // VersionsResult 是 runtime-python.versions 的结构化结果。
@@ -172,8 +188,45 @@ type DoctorResult struct {
 	Checks []Check `json:"checks"`
 }
 
-// versionsParams / infoParams / projectsParams / doctorParams 是四个方法的显式入参形状。
+// PathExecutable 是 PATH 上某个候选可执行名的解析结果。
+type PathExecutable struct {
+	Name  string `json:"name"`
+	Path  string `json:"path"`
+	Found bool   `json:"found"`
+}
+
+// DefaultRuntime 是「当前默认 Python 是哪个、怎么解析出来的」。
+type DefaultRuntime struct {
+	Command            string `json:"command"`
+	Path               string `json:"path"`
+	RealPath           string `json:"real_path"`
+	Version            string `json:"version"`
+	Implementation     string `json:"implementation,omitempty"`
+	BinDir             string `json:"bin_dir"`
+	PackageManager     string `json:"package_manager"`
+	PackageManagerPath string `json:"package_manager_path"`
+	Found              bool   `json:"found"`
+}
+
+// SearchSource 是一条发现来源及其命中路径（顺序与探测优先级一致）。
+type SearchSource struct {
+	Source Source   `json:"source"`
+	Paths  []string `json:"paths"`
+}
+
+// PathsResult 是 runtime-python.paths 的结构化结果：解释「为什么用到了这个版本」。
+type PathsResult struct {
+	PathEnv     []string         `json:"path_env"`
+	Executables []PathExecutable `json:"executables"`
+	Default     DefaultRuntime   `json:"default"`
+	SearchOrder []SearchSource   `json:"search_order"`
+	Hint        string           `json:"hint,omitempty"`
+}
+
+// versionsParams / infoParams / projectsParams / doctorParams / pathsParams 是显式入参形状。
 type versionsParams struct{}
+
+type pathsParams struct{}
 
 type infoParams struct {
 	Version string `json:"version"`

@@ -124,6 +124,51 @@ func TestBinaryVersionsAndInfo(t *testing.T) {
 	}
 	t.Logf("二进制 versions => %s", versions)
 
+	// paths：PATH 原始顺序如实回显；本进程 PATH 上没有 python3，故默认解析必然为空，
+	// 但只要 known_path 检测到解释器，hint 应说明是「PATH 上没找到」而不是「未检测到 Python」。
+	paths := callBinary(t, conn, "runtime-python.paths", `{}`)
+	var pathsResult struct {
+		PathEnv     []string `json:"path_env"`
+		Executables []struct {
+			Name  string `json:"name"`
+			Found bool   `json:"found"`
+		} `json:"executables"`
+		Default struct {
+			Command string `json:"command"`
+			Found   bool   `json:"found"`
+		} `json:"default"`
+		SearchOrder []struct {
+			Source string   `json:"source"`
+			Paths  []string `json:"paths"`
+		} `json:"search_order"`
+		Hint string `json:"hint"`
+	}
+	if err := json.Unmarshal(paths, &pathsResult); err != nil {
+		t.Fatalf("解析 paths 结果失败: %v（%s）", err, paths)
+	}
+	if len(pathsResult.PathEnv) != 1 || pathsResult.PathEnv[0] != "/nonexistent-kore-test-path" {
+		t.Fatalf("path_env 未如实回显: %s", paths)
+	}
+	if len(pathsResult.Executables) != 2 {
+		t.Fatalf("executables 应覆盖 python3/python: %s", paths)
+	}
+	if pathsResult.Default.Found {
+		t.Fatalf("PATH 上没有 python3 时不应解析出默认解释器: %s", paths)
+	}
+	if result.Count == 0 {
+		if pathsResult.Hint != pyop.NoPythonHint {
+			t.Fatalf("未安装时 paths hint=%q，期望 %q", pathsResult.Hint, pyop.NoPythonHint)
+		}
+	} else {
+		if pathsResult.Hint != pyop.PathDefaultHint {
+			t.Fatalf("已安装但 PATH 无默认时 paths hint=%q，期望 %q", pathsResult.Hint, pyop.PathDefaultHint)
+		}
+		if len(pathsResult.SearchOrder) == 0 {
+			t.Fatalf("已安装时 search_order 不应为空: %s", paths)
+		}
+	}
+	t.Logf("二进制 paths => %s", paths)
+
 	infoReq := &pluginapi.Request{
 		Type: pluginapi.TypeRequest, ID: randomID(t), ReqID: "r-info",
 		Method: "runtime-python.info", Params: json.RawMessage(`{}`), TimeoutMS: 15000,
