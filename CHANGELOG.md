@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.2] - 2026-11-24
+
+### 元数据
+
+- **`depth_level` 由 `production` 回落到 `basic`**（`info.json`，依据 `PLUGIN-CATALOG.md` §6.1 升级判据）：
+  升 `production` 需**两条都满足**——①边界用例覆盖（异常输入 / 并发 / 权限不足 / 资源耗尽
+  各 ≥1 例并进 CI）②故障注入通过。本仓 `tests/fault/` 四类故障注入真实 PASS（②达成），
+  但 `tests/boundary/` 不存在、`grep -rn "t.Parallel" tests/` 0 命中，①无任何证据 →
+  原 `production` 属单维度达标的**过度声明**，索引的 `basic` 才是正确值。
+- **不是降级缺陷**：零代码变更，方法 / 能力 / 故障矩阵一字未改；边界用例与高级配置按
+  `PLUGIN-CATALOG` §6.1 延到 v1.1。
+- 版本 bump 原因：`info.json` 在 dist 包体内，改元数据即改变包 sha，必须 bump（RELEASE §1）。
+
 ## [0.3.1] - 2026-11-23
 
 ### 测试
