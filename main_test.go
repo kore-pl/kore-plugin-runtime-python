@@ -6,11 +6,34 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"regexp"
 	"testing"
 	"time"
 
 	"github.com/pengtang1024/kore/pkg/pluginapi"
 )
+
+var semverPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
+
+// releaseVersions 读取 info.json / manifest.json 的 version：测试只断言「格式合法且三处同步」，
+// 不锁具体版本号，bump 时无需改测试（Gitea issue 技术债）。
+func releaseVersions(t *testing.T) (infoVersion, manifestVersion string) {
+	t.Helper()
+	read := func(path string) string {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("读 %s 失败: %v", path, err)
+		}
+		var m struct {
+			Version string `json:"version"`
+		}
+		if err := json.Unmarshal(raw, &m); err != nil {
+			t.Fatalf("解析 %s 失败: %v", path, err)
+		}
+		return m.Version
+	}
+	return read("info.json"), read("manifest.json")
+}
 
 // testConfig 构造握手与会话循环共用的一致配置（不依赖环境变量）。
 func testConfig() config {
@@ -176,8 +199,15 @@ func TestLoadConfigEmbedded(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadConfig 失败: %v", err)
 	}
-	if cfg.id != "runtime-python" || cfg.version != "0.2.3" {
-		t.Fatalf("id/version=%q/%q", cfg.id, cfg.version)
+	infoVersion, manifestVersion := releaseVersions(t)
+	if cfg.id != "runtime-python" {
+		t.Fatalf("id=%q，期望 runtime-python", cfg.id)
+	}
+	if !semverPattern.MatchString(cfg.version) {
+		t.Fatalf("version=%q 不是 MAJOR.MINOR.PATCH", cfg.version)
+	}
+	if cfg.version != infoVersion || cfg.version != manifestVersion {
+		t.Fatalf("内嵌版本=%q 与 info.json=%q / manifest.json=%q 不一致", cfg.version, infoVersion, manifestVersion)
 	}
 	if len(cfg.capabilities) != 1 || cfg.capabilities[0] != "system:admin" {
 		t.Fatalf("capabilities=%v", cfg.capabilities)
