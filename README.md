@@ -217,7 +217,7 @@ pip / site-packages / venv 单项探测失败只让对应字段为空 / 0 / fals
   在 `/tmp/kore-py-test` 造 3 个项目（pyproject / requirements / 坏文件）→ 返回 2 个 + warnings；
   doctor 真实检查项；**真实二进制会话**：空 `PATH` + 空 `HOME` 启动插件，versions 返回真实条目或
   `count=0 + 固定 hint`，info 按 `E_NOTFOUND` 降级（不崩溃）
-- `tests/fault/` 四类故障注入（kill / timeout / disk / cgroup）验证四个方法的协议错误码，并配 sanity 防假通过
+- `tests/fault/` 四类故障注入（kill / timeout / disk / cgroup）验证 **9 个方法**的协议错误码、并配 sanity 防假通过；`TestPipKillThenRetry` 额外验证 pip 子进程被杀后 venv 仍可用、可重试、无临时目录残留
 
 ## 构建与验收
 

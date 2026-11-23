@@ -5,6 +5,7 @@ package fault
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/pengtang1024/kore-plugin-runtime-python/internal/pyop"
@@ -34,6 +35,22 @@ func (f faultExecutor) Doctor(string) (pyop.DoctorResult, error) {
 
 func (f faultExecutor) Paths() (pyop.PathsResult, error) {
 	return pyop.PathsResult{}, pyop.NewFaultError(f.kind, "paths 执行面故障")
+}
+
+func (f faultExecutor) CreateVenv(string, pyop.VenvSpec) (pyop.VenvCreateResult, error) {
+	return pyop.VenvCreateResult{}, pyop.NewFaultError(f.kind, "venv.create 执行面故障")
+}
+
+func (f faultExecutor) InstallPackages(pyop.PipInstallSpec) (pyop.PipInstallResult, error) {
+	return pyop.PipInstallResult{}, pyop.NewFaultError(f.kind, "pip.install 执行面故障")
+}
+
+func (f faultExecutor) ListVenvs(string) (pyop.VenvListResult, error) {
+	return pyop.VenvListResult{}, pyop.NewFaultError(f.kind, "venv.list 执行面故障")
+}
+
+func (f faultExecutor) ListPackages(string) (pyop.PipListResult, error) {
+	return pyop.PipListResult{}, pyop.NewFaultError(f.kind, "pip.list 执行面故障")
 }
 
 // noFaultExecutor 返回最小合法结果，供 sanity 断言"不注入故障时五方法成功"。
@@ -66,6 +83,22 @@ func (noFaultExecutor) Doctor(string) (pyop.DoctorResult, error) {
 	return pyop.DoctorResult{Checks: []pyop.Check{{Name: "python", Status: pyop.StatusPass, Detail: "ok"}}}, nil
 }
 
+func (noFaultExecutor) CreateVenv(_ string, spec pyop.VenvSpec) (pyop.VenvCreateResult, error) {
+	return pyop.VenvCreateResult{Path: spec.Path, PythonVersion: "3.12.3", Created: true}, nil
+}
+
+func (noFaultExecutor) InstallPackages(spec pyop.PipInstallSpec) (pyop.PipInstallResult, error) {
+	return pyop.PipInstallResult{VenvPath: spec.VenvPath, Output: "Successfully installed", NetworkUsed: true}, nil
+}
+
+func (noFaultExecutor) ListVenvs(string) (pyop.VenvListResult, error) {
+	return pyop.VenvListResult{Venvs: []pyop.VenvInfo{}}, nil
+}
+
+func (noFaultExecutor) ListPackages(string) (pyop.PipListResult, error) {
+	return pyop.PipListResult{Packages: []pyop.PackageInfo{}}, nil
+}
+
 func (noFaultExecutor) Paths() (pyop.PathsResult, error) {
 	return pyop.PathsResult{
 		PathEnv:     []string{"/usr/bin"},
@@ -80,19 +113,38 @@ type methodCase struct {
 	name   string
 	method string
 	params func(root string) string
+	// prep 为需要真实文件系统前置条件的方法准备目录（如 pip.install 的 venv_path）。
+	prep func(root string)
 }
 
-// methods 覆盖五个方法；root 使用状态目录白名单（t.TempDir 作为 <state>）。
+// methods 覆盖九个方法（含 venv/pip 四个）；root 使用状态目录白名单（t.TempDir 作为 <state>）。
 var methods = []methodCase{
-	{"versions", "runtime-python.versions", func(string) string { return `{}` }},
-	{"info", "runtime-python.info", func(string) string { return `{}` }},
+	{"versions", "runtime-python.versions", func(string) string { return `{}` }, nil},
+	{"info", "runtime-python.info", func(string) string { return `{}` }, nil},
 	{"projects", "runtime-python.projects", func(root string) string {
 		return `{"root":` + jsonString(root) + `}`
-	}},
+	}, nil},
 	{"doctor", "runtime-python.doctor", func(root string) string {
 		return `{"root":` + jsonString(root) + `}`
-	}},
-	{"paths", "runtime-python.paths", func(string) string { return `{}` }},
+	}, nil},
+	{"paths", "runtime-python.paths", func(string) string { return `{}` }, nil},
+	{"venv.create", "runtime-python.venv.create", func(root string) string {
+		return `{"path":` + jsonString(root+"/venvs/fault") + `}`
+	}, nil},
+	{"venv.list", "runtime-python.venv.list", func(string) string { return `{}` }, nil},
+	{"pip.install", "runtime-python.pip.install", func(root string) string {
+		return `{"venv_path":` + jsonString(root+"/venvs/fault") + `,"packages":["requests==2.31.0"]}`
+	}, makeFaultVenv},
+	{"pip.list", "runtime-python.pip.list", func(root string) string {
+		return `{"venv_path":` + jsonString(root+"/venvs/fault") + `}`
+	}, makeFaultVenv},
+}
+
+// makeFaultVenv 造一个含 bin/pip 的 venv 目录，让 pip.* 的参数校验先通过、故障由执行面注入。
+func makeFaultVenv(root string) {
+	venv := root + "/venvs/fault"
+	_ = os.MkdirAll(venv+"/bin", 0o700)
+	_ = os.WriteFile(venv+"/bin/pip", []byte("#!/bin/sh\n"), 0o700)
 }
 
 // assertFault 对每个方法注入故障，断言返回 nil 结果 + 预期协议错误码与类别关键词。
@@ -102,6 +154,9 @@ func assertFault(t *testing.T, kind pyop.FaultKind, wantCode, wantHint string) {
 	exec := faultExecutor{kind: kind}
 	for _, m := range methods {
 		t.Run(m.name, func(t *testing.T) {
+			if m.prep != nil {
+				m.prep(root)
+			}
 			result, perr := pyop.Call(m.method, json.RawMessage(m.params(root)), root, exec)
 			if perr == nil {
 				t.Fatalf("%s 注入 %s 后未返回错误（结果=%s）", m.method, kind, result)
@@ -124,6 +179,9 @@ func sanityNoFault(t *testing.T) {
 	t.Helper()
 	root := t.TempDir()
 	for _, m := range methods {
+		if m.prep != nil {
+			m.prep(root)
+		}
 		result, perr := pyop.Call(m.method, json.RawMessage(m.params(root)), root, noFaultExecutor{})
 		if perr != nil {
 			t.Fatalf("无故障时 %s 意外返回错误: %v", m.method, perr)

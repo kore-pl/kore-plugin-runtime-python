@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.1] - 2026-11-23
+
+### 测试
+
+- **故障注入补齐 4 个新方法**：`venv.create` / `venv.list` / `pip.install` / `pip.list`
+  全部纳入 `tests/fault/` 矩阵（kill / timeout / disk / cgroup 四类各跑一遍），
+  断言 `E_UPSTREAM` / `E_INTERNAL` / `E_UNSUPPORTED` 语义正确、不 panic；
+  故障矩阵覆盖方法数 5 → 9。
+- **pip 子进程被杀后可重试**：新增 `TestPipKillThenRetry`——kill 注入后 venv 目录、
+  `bin/pip` 与已有文件保持完好，同一 venv 立即重试成功，且不残留临时目录。
+- 无生产代码变更；仅版本号 + 测试 + CHANGELOG。
+
 ## [0.3.0] - 2026-11-23
 
 ### 新增
