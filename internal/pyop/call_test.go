@@ -163,7 +163,7 @@ func TestCallDoctorOptionalRoot(t *testing.T) {
 
 // TestCallUnknownMethod 未知方法返回 E_NOTFOUND；0.2.0 起骨架方法 venv.create 已移除。
 func TestCallUnknownMethod(t *testing.T) {
-	for _, method := range []string{"runtime-python.exec", "runtime-python.venv.create", "versions", "python.versions"} {
+	for _, method := range []string{"runtime-python.exec", "runtime-python.notimpl", "versions", "python.versions"} {
 		_, perr := Call(method, json.RawMessage(`{}`), "", &stubExecutor{})
 		if perr == nil || perr.Code != pluginapi.E_NOTFOUND {
 			t.Fatalf("Call(%q) 错误=%v，期望 E_NOTFOUND", method, perr)

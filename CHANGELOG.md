@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.0] - 2026-11-23
+
+### 新增
+
+- **`runtime-python.venv.create`（admin）**：在插件状态目录建 venv（默认
+  `<KORE_PYTHON_ROOT>/venvs/venv`），可选 `python_version` 与建完即装 `packages`；
+  显式 `path` 必须是绝对路径且落在允许根内，越界 `E_INVALID` + `detail.hint`；
+  已存在 `created=false` 不覆盖；venv 目录 0700；带 packages 时 `network_used=true`。
+- **`runtime-python.pip.install`（admin）**：在指定 venv 内装依赖，固定 argv
+  `bin/pip install --no-input --disable-pip-version-check`；包名白名单
+  `[A-Za-z0-9][A-Za-z0-9._-]*` + 可选 `==version`，拒绝空格/分号/`--index-url`
+  等选项注入且不触达执行面；120s 超时、输出首尾各 32 KiB + `truncated`；
+  `network_used` 恒为 true（pip 默认连 PyPI）。
+- **`runtime-python.venv.list` / `runtime-python.pip.list`（read）**：列出 venv 与已装包。
+
+### 安全
+
+- 不写系统 site-packages：pip 只经目标 venv 的 `bin/pip` 执行；venv 目标与解析后的
+  真实路径都必须在允许根内（挡符号链接逃逸）。
+
 ## [0.2.4] - 2026-11-23
 
 ### Changed

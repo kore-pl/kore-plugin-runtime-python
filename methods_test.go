@@ -97,7 +97,8 @@ func TestDispatchReject(t *testing.T) {
 		{"runtime-python.projects", `{}`, pluginapi.E_INVALID},
 		{"runtime-python.projects", `{"root":"/etc"}`, pluginapi.E_INVALID},
 		{"runtime-python.doctor", `{"root":"/etc"}`, pluginapi.E_INVALID},
-		{"runtime-python.venv.create", `{"version":"3.11","path":"envs/app"}`, pluginapi.E_NOTFOUND},
+		{"runtime-python.venv.create", `{"path":"envs/app"}`, pluginapi.E_INVALID},
+		{"runtime-python.notimpl", `{}`, pluginapi.E_NOTFOUND},
 		{"runtime-python.exec", `{}`, pluginapi.E_NOTFOUND},
 		{"python.versions", `{}`, pluginapi.E_NOTFOUND}, // 旧域，域必须等于插件 id
 		{"versions", `{}`, pluginapi.E_NOTFOUND},        // 裸动词，不接受

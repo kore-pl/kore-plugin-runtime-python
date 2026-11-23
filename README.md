@@ -7,7 +7,7 @@ Python 运行时插件（**基础级**）：真实检测宿主已安装的 Pytho
 
 - `kore.plugin.v1`，`lifecycle=lazy`，`depth_level=production`，插件级能力 `system:admin`（仅作未声明方法的 fail-closed 回退）
 - **方法级能力**（`method_capabilities`）：5 个方法全为 `system:read`——只读探测无需管理权限，内核据此不再把只读调用计入写审计
-- 方法：`runtime-python.versions` / `runtime-python.info` / `runtime-python.projects` / `runtime-python.doctor` / `runtime-python.paths`
+- 方法：`runtime-python.versions` / `runtime-python.info` / `runtime-python.projects` / `runtime-python.doctor` / `runtime-python.paths` / `runtime-python.venv.create` / `runtime-python.venv.list` / `runtime-python.pip.install` / `runtime-python.pip.list`
   （域必须等于插件 id `runtime-python`，PLUGIN-PROTOCOL §7.2；不接受裸动词或旧 `python.` 前缀）
 - 握手的 stdout 留给协议帧，日志一律写 stderr；未知方法 `E_NOTFOUND`，参数非法 `E_INVALID`
 
@@ -171,12 +171,48 @@ pip / site-packages / venv 单项探测失败只让对应字段为空 / 0 / fals
 - 未检测到 Python 时不报错：`default.found=false`、`search_order=[]`，并给与 `versions` 相同的 `hint`
 - 装了 Python 但 PATH 上找不到 `python3` / `python` 时，`hint` 会说明是「PATH 上没找到」而不是「未检测到 Python」
 
+### `runtime-python.venv.create {path?, python_version?, packages?}`（admin）
+
+在插件状态目录下建 venv（默认 `<KORE_PYTHON_ROOT>/venvs/venv`），可选创建后立刻装依赖。
+`path` 必须是绝对路径且落在允许根内（插件状态目录 / `/var/www` / `/opt` / `/home`），越界返回
+`E_INVALID` + `detail.hint`；目录已存在时 `created=false` 且**不覆盖**；venv 目录权限固定 0700。
+
+```json
+{"path": "/var/lib/kore/runtime-python/venvs/app", "python_version": "3.12", "packages": ["requests==2.31.0"]}
+```
+
+返回 `{path, python_version, created, packages, network_used, hint}`；带 `packages` 时 `network_used=true`。
+
+### `runtime-python.pip.install {venv_path, packages[]}`（admin）
+
+在指定 venv 内执行 `bin/pip install --no-input --disable-pip-version-check <pkgs>`。
+**固定 argv + 包名白名单** `^[A-Za-z0-9][A-Za-z0-9._-]*(==[A-Za-z0-9][A-Za-z0-9._-]*)?$`：
+空格、分号、引号、`--index-url` 等选项注入一律 `E_INVALID`，且不会触达执行面；单次最多 50 个包。
+硬超时 120s，输出保留首尾各 32 KiB 并标记 `truncated=true`；`network_used` 恒为 `true`（pip 默认访问 PyPI）。
+
+```json
+{"venv_path": "/var/lib/kore/runtime-python/venvs/app", "packages": ["requests==2.31.0", "Django"]}
+```
+
+返回 `{venv_path, packages, output, truncated, duration_ms, network_used, hint}`。
+
+### `runtime-python.venv.list`（read）
+
+列出 `<KORE_PYTHON_ROOT>/venvs` 下含 `pyvenv.cfg` 的目录：`{root, venvs:[{name,path,version}], count, hint}`。
+
+### `runtime-python.pip.list {venv_path}`（read）
+
+执行 `bin/pip list --format=json`，返回 `{venv_path, packages:[{name,version}], count, hint}`。
+只读、不联网（pip 本地查询）。
+
 ## 测试
 
 - 单元：版本解析（`Python 3.14.4` / PyPy 横幅 / `Python 2.7.18`）、pip 版本与 `pip list` 计数、
   info.version 归一、路径白名单与软链逃逸、pyproject 行级提取（`name` / `requires-python` / 依赖数 /
   内联数组 / 未闭合数组）、requirements 计数、setup.py、Pipfile、超 64 KiB 截断、非 UTF-8 跳过、
-  坏文件跳过、条目上限、venv 检测、去重 / 排序 / `is_default`、命令硬超时
+  坏文件跳过、条目上限、venv 检测、去重 / 排序 / `is_default`、命令硬超时；
+  venv/pip：路径越界与软链逃逸、包名注入（`pkg; rm -rf /` / `--index-url`）、已存在不覆盖、
+  120s 超时映射、输出截断、空列表/缺参边界
 - 真实 E2E（`tests/e2e/`）：本机真实 Python 版本与 `which python3` 一致、真实 pip / site-packages / 包数 / venv；
   在 `/tmp/kore-py-test` 造 3 个项目（pyproject / requirements / 坏文件）→ 返回 2 个 + warnings；
   doctor 真实检查项；**真实二进制会话**：空 `PATH` + 空 `HOME` 启动插件，versions 返回真实条目或
@@ -188,7 +224,7 @@ pip / site-packages / venv 单项探测失败只让对应字段为空 / 0 / fals
 ```bash
 gofmt -l . && go vet ./... && go test -timeout 200s ./...
 make build && make dist
-tar -tzf dist/runtime-python-0.2.3.tar.gz | head -1   # info.json
+tar -tzf dist/runtime-python-0.3.0.tar.gz | head -1   # info.json
 ```
 
 `dist` 使用确定性参数归档（`--sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner` + `gzip -9n`），
@@ -213,7 +249,7 @@ MIT，见 [LICENSE](LICENSE)。
 - **行为准则**：[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。
 - **兼容性**：`protocol: kore.plugin.v1` · `requires_kore: >=0.1.0 <0.2.0` · `lifecycle: lazy` · 深度等级 `production`。
 - **验证方式**：本地 `make check` 优先（CI 只在 push main / tag / PR / 手动跑；发布前 `make dist` 连跑两次核对 sha 一致）。
-- **发布产物**：`make dist` → `dist/runtime-python-0.2.3.tar.gz` + `.sha256`（位级可复现，连跑两次 sha 相同）。
+- **发布产物**：`make dist` → `dist/runtime-python-0.3.0.tar.gz` + `.sha256`（位级可复现，连跑两次 sha 相同）。
 - **相关仓库**：[索引 kore-plugins](https://github.com/kore-pl/kore-plugins) · [协议文档](https://github.com/kore-pl/kore/blob/main/docs/PLUGIN-PROTOCOL.md) · [SDK 指南](https://github.com/kore-pl/kore/blob/main/docs/PLUGIN-SDK.md)
 
 <!-- oss:end -->

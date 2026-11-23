@@ -32,6 +32,14 @@ func Call(method string, params json.RawMessage, stateRoot string, exec Executor
 		return callDoctor(params, exec, stateRoot)
 	case "paths":
 		return callPaths(params, exec)
+	case "venv.create":
+		return callVenvCreate(params, stateRoot, exec)
+	case "venv.list":
+		return callVenvList(params, stateRoot, exec)
+	case "pip.install":
+		return callPipInstall(params, stateRoot, exec)
+	case "pip.list":
+		return callPipList(params, stateRoot, exec)
 	}
 	return nil, errNotFound(method)
 }
@@ -46,7 +54,8 @@ func businessVerb(method string) (string, bool) {
 		return "", false
 	}
 	switch verb {
-	case "versions", "info", "projects", "doctor", "paths":
+	case "versions", "info", "projects", "doctor", "paths",
+		"venv.create", "venv.list", "pip.install", "pip.list":
 		return verb, true
 	}
 	return "", false
@@ -101,6 +110,10 @@ func classify(err error) *pluginapi.Error {
 		return notFound(NoPythonHint)
 	case errors.Is(err, ErrVersionNotInstalled):
 		return invalid(err.Error())
+	case errors.Is(err, ErrVenvNoPip):
+		return unsupported("venv 内缺少 pip（python3 -m venv 可带 --upgrade-deps 重建）")
+	case errors.Is(err, ErrVenvTimeout):
+		return upstream("venv/pip 命令超时（上限 " + VenvCommandTimeout.String() + "）")
 	}
 	return internalErr("执行面失败: " + err.Error())
 }

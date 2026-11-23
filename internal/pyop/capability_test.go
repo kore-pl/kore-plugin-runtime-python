@@ -41,19 +41,24 @@ func TestMethodCapabilitiesMatchDispatch(t *testing.T) {
 	if manifest.ID != "runtime-python" {
 		t.Fatalf("info.json.id=%q，期望 runtime-python", manifest.ID)
 	}
-	verbs := []string{"versions", "info", "projects", "doctor", "paths"}
-	if len(manifest.MethodCapabilities) != len(verbs) {
-		t.Fatalf("method_capabilities 条数=%d，期望 %d", len(manifest.MethodCapabilities), len(verbs))
+	want := map[string]string{
+		"versions": "system:read", "info": "system:read", "projects": "system:read",
+		"doctor": "system:read", "paths": "system:read",
+		"venv.create": "system:admin", "venv.list": "system:read",
+		"pip.install": "system:admin", "pip.list": "system:read",
+	}
+	if len(manifest.MethodCapabilities) != len(want) {
+		t.Fatalf("method_capabilities 条数=%d，期望 %d", len(manifest.MethodCapabilities), len(want))
 	}
 	pattern := regexp.MustCompile(methodActionPattern)
-	for _, verb := range verbs {
+	for verb, wantCap := range want {
 		key := "runtime-python." + verb
 		capability, ok := manifest.MethodCapabilities[key]
 		if !ok {
 			t.Fatalf("缺少方法级能力声明 %q", key)
 		}
-		if capability != "system:read" {
-			t.Fatalf("%s 能力=%q，期望 system:read（全部只读）", key, capability)
+		if capability != wantCap {
+			t.Fatalf("%s 能力=%q，期望 %q", key, capability, wantCap)
 		}
 		if !privilegedCapabilities[capability] {
 			t.Fatalf("%s 的能力 %q 不是 6 项特权能力之一", key, capability)
