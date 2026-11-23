@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.3] - 2026-11-23
+
+### Changed
+- 提升为 `production` 深度等级（故障注入测试已覆盖）
+
 ## 0.2.2 (2026-11-23)
 
 - feat: 方法级能力声明（§3.5 #12）——`runtime-python.versions` / `info` / `projects` / `doctor` / `paths` 全部 `system:read`，

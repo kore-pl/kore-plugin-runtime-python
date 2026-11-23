@@ -16,7 +16,7 @@ import (
 func testConfig() config {
 	return config{
 		id:           "runtime-python",
-		version:      "0.2.2",
+		version:      "0.2.3",
 		requiresKore: ">=0.1.0 <0.2.0",
 		capabilities: []string{"system:admin"},
 		root:         "/var/lib/kore/runtime-python",
@@ -78,7 +78,7 @@ func TestHandshake(t *testing.T) {
 	if params.PluginID != "runtime-python" || params.ID != "runtime-python" {
 		t.Fatalf("plugin_id/id=%q/%q，期望 runtime-python", params.PluginID, params.ID)
 	}
-	if params.Protocol != pluginapi.Protocol || params.Version != "0.2.2" {
+	if params.Protocol != pluginapi.Protocol || params.Version != "0.2.3" {
 		t.Fatalf("protocol/version=%q/%q 不符合 §5", params.Protocol, params.Version)
 	}
 	result, err := json.Marshal(helloResult{OK: true, Protocol: pluginapi.Protocol})
@@ -176,7 +176,7 @@ func TestLoadConfigEmbedded(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadConfig 失败: %v", err)
 	}
-	if cfg.id != "runtime-python" || cfg.version != "0.2.2" {
+	if cfg.id != "runtime-python" || cfg.version != "0.2.3" {
 		t.Fatalf("id/version=%q/%q", cfg.id, cfg.version)
 	}
 	if len(cfg.capabilities) != 1 || cfg.capabilities[0] != "system:admin" {

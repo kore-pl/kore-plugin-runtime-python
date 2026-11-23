@@ -5,7 +5,7 @@ Python 运行时插件（**基础级**）：真实检测宿主已安装的 Pytho
 
 ## 协议面
 
-- `kore.plugin.v1`，`lifecycle=lazy`，`depth_level=basic`，插件级能力 `system:admin`（仅作未声明方法的 fail-closed 回退）
+- `kore.plugin.v1`，`lifecycle=lazy`，`depth_level=production`，插件级能力 `system:admin`（仅作未声明方法的 fail-closed 回退）
 - **方法级能力**（`method_capabilities`）：5 个方法全为 `system:read`——只读探测无需管理权限，内核据此不再把只读调用计入写审计
 - 方法：`runtime-python.versions` / `runtime-python.info` / `runtime-python.projects` / `runtime-python.doctor` / `runtime-python.paths`
   （域必须等于插件 id `runtime-python`，PLUGIN-PROTOCOL §7.2；不接受裸动词或旧 `python.` 前缀）
@@ -188,7 +188,7 @@ pip / site-packages / venv 单项探测失败只让对应字段为空 / 0 / fals
 ```bash
 gofmt -l . && go vet ./... && go test -timeout 200s ./...
 make build && make dist
-tar -tzf dist/runtime-python-0.2.2.tar.gz | head -1   # info.json
+tar -tzf dist/runtime-python-0.2.3.tar.gz | head -1   # info.json
 ```
 
 `dist` 使用确定性参数归档（`--sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner` + `gzip -9n`），
