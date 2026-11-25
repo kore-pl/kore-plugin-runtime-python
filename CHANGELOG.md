@@ -133,3 +133,14 @@
 - feat: runtime-python.versions / runtime-python.venv.create 方法级参数校验与结构化结果，版本白名单 3.9-3.13，路径限制在配置根目录内，不真建 venv
 - feat: 基础故障注入测试（kill -9 / 超时），验证方法级错误返回
 - build: 确定性打包（--sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner + gzip -9n）
+
+## [v0.4.1] - 2026-11-25
+
+### Added
+
+- 补齐开源工程标准化：新增简体中文 / English / Español / Français / Deutsch / Русский / Português 七语言文档（`locale/` 与 `docs/DETAIL*`）、安全与依赖更新配置（dependabot / CODEOWNERS / SECURITY 译文）、贡献指南的分支模型说明，以及中文 CHANGELOG 语义化版本条目。
+- 新增本地 `develop` 分支约定与 SSH 签名 tag 约定（历史 tag 不动）。
+
+### Changed
+
+- README 增加七语言切换行与 Star 支持提示；对应版本标签 `v0.4.1` 仅作为工程标准化发布标识，`info.json` / `manifest.json` 的运行时版本与 `dist` 产物保持不变，避免发布包 sha 漂移。

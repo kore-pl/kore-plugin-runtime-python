@@ -1,5 +1,7 @@
 # kore-plugin-runtime-python
 
+语言：[简体中文](docs/DETAIL.md) · [English](docs/DETAIL.en.md) · [Español](docs/DETAIL.es.md) · [Français](docs/DETAIL.fr.md) · [Deutsch](docs/DETAIL.de.md) · [Русский](docs/DETAIL.ru.md) · [Português](docs/DETAIL.pt.md)
+
 Python 运行时插件（**基础级**）：真实检测宿主已安装的 Python、汇总单解释器详情、
 扫描 Python 项目并做健康检查、建虚拟环境与装依赖；0.4.0 起补**默认版本切换**与**单进程守护**
 （启动 / 停止 / 重启 / 状态 / 日志尾部）。**不内置 python 二进制、不引入常驻中间件、不做容器编排**：
@@ -275,5 +277,9 @@ MIT，见 [LICENSE](LICENSE)。
 - **验证方式**：本地 `make check` 优先（GitHub CI 只手动触发，Gitea CI 按版本 tag 触发；发布前 `make dist` 连跑两次核对 sha 一致）。
 - **发布产物**：`make dist` → `dist/runtime-python-0.4.0.tar.gz` + `.sha256`（位级可复现，连跑两次 sha 相同）。
 - **相关仓库**：[索引 kore-plugins](https://github.com/kore-pl/kore-plugins) · [协议文档](https://github.com/kore-pl/kore/blob/main/docs/PLUGIN-PROTOCOL.md) · [SDK 指南](https://github.com/kore-pl/kore/blob/main/docs/PLUGIN-SDK.md)
+
+
+
+如果你觉得这个插件有用，欢迎给仓库点个 ⭐ Star —— 你的支持是持续维护的动力。
 
 <!-- oss:end -->
