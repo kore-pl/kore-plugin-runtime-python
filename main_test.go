@@ -209,7 +209,9 @@ func TestLoadConfigEmbedded(t *testing.T) {
 	if cfg.version != infoVersion || cfg.version != manifestVersion {
 		t.Fatalf("内嵌版本=%q 与 info.json=%q / manifest.json=%q 不一致", cfg.version, infoVersion, manifestVersion)
 	}
-	if len(cfg.capabilities) != 1 || cfg.capabilities[0] != "system:admin" {
+	// 0.4.0 起多一项 proc:write：进程守护真的启停本机进程，方法级能力需要该域在插件级声明
+	// （pluginapitest 的一致性规则：方法级只能收窄、不能跨域放大）。
+	if len(cfg.capabilities) != 2 || cfg.capabilities[0] != "system:admin" || cfg.capabilities[1] != "proc:write" {
 		t.Fatalf("capabilities=%v", cfg.capabilities)
 	}
 }

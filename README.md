@@ -1,13 +1,18 @@
 # kore-plugin-runtime-python
 
 Python 运行时插件（**基础级**）：真实检测宿主已安装的 Python、汇总单解释器详情、
-扫描 Python 项目并做健康检查。只读元数据——**不执行项目脚本、不写宿主文件、不内置 python 二进制**。
+扫描 Python 项目并做健康检查、建虚拟环境与装依赖；0.4.0 起补**默认版本切换**与**单进程守护**
+（启动 / 停止 / 重启 / 状态 / 日志尾部）。**不内置 python 二进制、不引入常驻中间件、不做容器编排**：
+守护没有 supervisor 进程，被守护应用 setsid 脱离会话独立运行，状态全部落盘。
 
 ## 协议面
 
-- `kore.plugin.v1`，`lifecycle=lazy`，`depth_level=basic`（核心路径可用；边界用例延 v1.1，非功能降级），插件级能力 `system:admin`（仅作未声明方法的 fail-closed 回退）
-- **方法级能力**（`method_capabilities`）：5 个方法全为 `system:read`——只读探测无需管理权限，内核据此不再把只读调用计入写审计
-- 方法：`runtime-python.versions` / `runtime-python.info` / `runtime-python.projects` / `runtime-python.doctor` / `runtime-python.paths` / `runtime-python.venv.create` / `runtime-python.venv.list` / `runtime-python.pip.install` / `runtime-python.pip.list`
+- `kore.plugin.v1`，`lifecycle=lazy`，`depth_level=basic`（核心路径可用；边界用例延 v1.1，非功能降级），插件级能力 `system:admin` + `proc:write`（后者是守护启停真实进程所需；方法级能力只能收窄、不能跨域放大）
+- **方法级能力**（`method_capabilities`，17 条）：只读探测 / 列表 / 日志 = `system:read`；
+  venv / pip / 版本钉住 / 守护配置增删 = `system:admin`；`guard.start` / `guard.stop` / `guard.restart` = `proc:write`
+- 方法：`versions` / `info` / `projects` / `doctor` / `paths` / `venv.create` / `venv.list` /
+  `pip.install` / `pip.list` / `use` / `guard.add` / `guard.list` / `guard.start` / `guard.stop` /
+  `guard.restart` / `guard.remove` / `guard.logs`
   （域必须等于插件 id `runtime-python`，PLUGIN-PROTOCOL §7.2；不接受裸动词或旧 `python.` 前缀）
 - 握手的 stdout 留给协议帧，日志一律写 stderr；未知方法 `E_NOTFOUND`，参数非法 `E_INVALID`
 
@@ -130,8 +135,23 @@ pip / site-packages / venv 单项探测失败只让对应字段为空 / 0 / fals
 - Python 未装、pip 不可用、venv 模块缺失 → `fail`；site-packages 不可写与可选工具缺失 → `warn`
 - site-packages 不可写只告警：系统解释器本就如此，正确做法是用 venv 装依赖
 
+### `runtime-python.use {version?}` 与进程守护（`guard.*`）
+
+与 runtime-node 同一套契约（`use` 钉住默认解释器；零参数 = 清除钉住）：
+
+- `use {version?}`：把已安装的解释器钉为默认（写 `<state>/default-version.json`，不改宿主 PATH）；
+  `versions` 的 `pinned_version` / `pinned_path` 回显
+- `guard.add {name, dir, script, args?, version?}`：注册应用（`script` 通常是 `app.py`）；
+  `dir` 走白名单 + 软链二次校验，`name` 匹配 `^[a-z][a-z0-9-]{0,31}$`
+- `guard.start {names?}`（幂等，零参数 = 全部）/ `guard.stop {names?}`（SIGTERM 进程组 → 5s 后 SIGKILL）/
+  `guard.restart {name}` / `guard.list` / `guard.logs {name, lines?}`（≤500 行 / 64 KiB）/ `guard.remove {name}`
+- **诚实边界**：不自动重启（无常驻 supervisor）；进程退出后显示 `crashed` + `exit_code`，
+  点一次「重启」或由 cron 插件定时调幂等的 `guard.start`；不做编排（单机单进程，上限 32 个应用）
+
 ## 安全
 
+- **守护的进程边界**：固定 argv（无 shell）、工作目录限定白名单、子进程环境**剔除全部 `KORE_*`**、
+  日志 0640 / 守护目录 0750；PID 存活用「PID + 启动时刻」双判据，`Z` / `X` 状态判为不在运行
 - **root 白名单**：`/var/www`、`/opt`、`/home` 与插件状态目录（`KORE_PYTHON_ROOT`，默认 `/var/lib/kore/runtime-python`）；
   必须是绝对路径、无 NUL / 反斜杠 / `..`；`ResolveExisting`（`EvalSymlinks` + 存在性 + 目录）后再比对归属，
   挡住父目录被换成软链的逃逸
@@ -206,6 +226,10 @@ pip / site-packages / venv 单项探测失败只让对应字段为空 / 0 / fals
 只读、不联网（pip 本地查询）。
 
 ## 测试
+
+- 守护用例（`guard_test.go`，假 `GuardIO`）：零参数启动（G-33 A1）、start 幂等、start/stop/restart 状态流转、
+  SIGTERM 无效升级 SIGKILL、日志尾部、应用名 / 目录越界 / `..` 穿越 / 脚本缺失的「怎么办」文案、
+  退出码落盘、版本钉住与清除
 
 - 单元：版本解析（`Python 3.14.4` / PyPy 横幅 / `Python 2.7.18`）、pip 版本与 `pip list` 计数、
   info.version 归一、路径白名单与软链逃逸、pyproject 行级提取（`name` / `requires-python` / 依赖数 /

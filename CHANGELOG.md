@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.4.0] - 2026-11-25
+
+### Added
+
+- **进程守护（极简 pm2 同款能力，不做编排）**：`guard.add` / `guard.list` / `guard.start` /
+  `guard.stop` / `guard.restart` / `guard.remove` / `guard.logs`。启动用 `<python> <script> <args...>`
+  拉起脱离会话（setsid）的子进程，stdout/stderr 追加到 `<state>/guard/<name>.log`；
+  停止先给进程组 SIGTERM、5s 不退升级 SIGKILL；状态含 running / stopped / crashed、PID、运行时长、RSS、
+  日志大小与尾部 500 行。没有 supervisor 常驻进程（G-05 / G-19），`guard.start` 幂等、零参数 = 全部启动，
+  可配合 cron 插件做「挂了自动起」。
+- **默认版本切换**：`use {version?}` 钉住默认解释器（写 `<state>/default-version.json`，不改宿主 PATH），
+  零参数 = 清除；`versions` 新增 `pinned_version` / `pinned_path`。
+
+### Changed
+
+- 插件级能力增加 `proc:write`（守护启停真实进程；方法级能力只能收窄不能跨域放大）；
+  `method_capabilities` 9 条 → 17 条。
+
+### Fixed
+
+- 僵尸进程误判：子进程退出后由阻塞 `Wait` 的回收 goroutine 回收并落盘退出码，`Probe` 把 `Z` / `X`
+  判为不在运行，停止不再出现「进程仍在运行」的假失败。
+
 ## [0.3.2] - 2026-11-24
 
 ### 元数据

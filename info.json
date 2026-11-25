@@ -1,12 +1,15 @@
 {
   "id": "runtime-python",
   "name": "Python 运行时插件",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "protocol": "kore.plugin.v1",
   "lifecycle": "lazy",
   "depth_level": "basic",
   "entry": "bin/runtime-python",
-  "capabilities": ["system:admin"],
+  "capabilities": [
+    "system:admin",
+    "proc:write"
+  ],
   "method_capabilities": {
     "runtime-python.versions": "system:read",
     "runtime-python.info": "system:read",
@@ -16,13 +19,27 @@
     "runtime-python.venv.create": "system:admin",
     "runtime-python.venv.list": "system:read",
     "runtime-python.pip.install": "system:admin",
-    "runtime-python.pip.list": "system:read"
+    "runtime-python.pip.list": "system:read",
+    "runtime-python.use": "system:admin",
+    "runtime-python.guard.add": "system:admin",
+    "runtime-python.guard.remove": "system:admin",
+    "runtime-python.guard.list": "system:read",
+    "runtime-python.guard.logs": "system:read",
+    "runtime-python.guard.start": "proc:write",
+    "runtime-python.guard.stop": "proc:write",
+    "runtime-python.guard.restart": "proc:write"
   },
   "triggers": [],
   "requires_kore": ">=0.1.0 <0.2.0",
-  "resources": {"memory_mb": 6, "cpu_quota": "15%", "pids_max": 16},
+  "resources": {
+    "memory_mb": 6,
+    "cpu_quota": "15%",
+    "pids_max": 16
+  },
   "depends_on": [],
   "conflicts": [],
-  "scenario_tags": ["app"],
+  "scenario_tags": [
+    "app"
+  ],
   "size_bytes": 1550368
 }
