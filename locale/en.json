@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Python Runtime Plugin",
+    "description": "Detects host Python (including pyenv/conda), reports interpreter details, scans projects for health checks, creates virtual environments and installs packages; supports default-version pinning and a local single-process daemon.",
+    "detail": "docs/DETAIL.en.md"
+  }
+}

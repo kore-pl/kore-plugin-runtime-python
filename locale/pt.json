@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Plugin de runtime do Python",
+    "description": "Detecta o Python no host (incluindo pyenv e conda), resume os detalhes do interpretador, varre projetos, cria ambientes virtuais e instala dependências; oferece fixação da versão padrão e um daemon local de processo único.",
+    "detail": "docs/DETAIL.pt.md"
+  }
+}

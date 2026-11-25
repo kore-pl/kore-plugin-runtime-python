@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Complemento de entorno de ejecución de Python",
+    "description": "Detecta Python en el host (incluidos pyenv y conda), resume los detalles del intérprete, analiza proyectos, crea entornos virtuales e instala dependencias; admite fijar la versión predeterminada y un demonio local de un solo proceso.",
+    "detail": "docs/DETAIL.es.md"
+  }
+}

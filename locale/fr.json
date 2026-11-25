@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Plugin d'exécution Python",
+    "description": "Détecte Python sur l'hôte (y compris pyenv et conda), détaille l'interpréteur, analyse les projets, crée des environnements virtuels et installe des dépendances ; prend en charge l'épinglage de la version par défaut et un démon local à processus unique.",
+    "detail": "docs/DETAIL.fr.md"
+  }
+}

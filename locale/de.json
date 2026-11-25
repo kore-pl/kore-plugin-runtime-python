@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Python-Laufzeit-Plugin",
+    "description": "Erkennt Python auf dem Host (einschließlich pyenv und conda), fasst Interpreterdetails zusammen, scannt Projekte, erstellt virtuelle Umgebungen und installiert Abhängigkeiten; unterstützt die Festlegung der Standardversion und einen lokalen Einzelprozess-Daemon.",
+    "detail": "docs/DETAIL.de.md"
+  }
+}
