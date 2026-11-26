@@ -12,7 +12,7 @@ import (
 func callVersions(params json.RawMessage, exec Executor, stateRoot string) (json.RawMessage, *pluginapi.Error) {
 	var p versionsParams
 	if err := strictUnmarshal(params, &p); err != nil {
-		return nil, invalid("runtime-python.versions 参数非法: " + err.Error())
+		return nil, invalid("runtime-python.versions 参数有误，请检查后重试: " + err.Error())
 	}
 	result, err := exec.Versions()
 	if err != nil {

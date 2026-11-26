@@ -273,11 +273,11 @@ func resolveVenvTarget(raw, stateRoot string) (string, *pluginapi.Error) {
 func resolveExistingVenv(raw, stateRoot string) (string, *pluginapi.Error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return "", invalid("缺少必填字段 venv_path")
+		return "", invalid("请填写必填字段 venv_path（虚拟环境目录）")
 	}
 	clean := filepath.Clean(trimmed)
 	if !filepath.IsAbs(clean) || strings.Contains(clean, "\\") {
-		return "", invalid("venv_path 必须是绝对路径")
+		return "", invalid("venv_path 请填绝对路径（以 / 开头）")
 	}
 	if !withinAny(allowedRoots(stateRoot), clean) {
 		return "", venvPathOutOfRootHint(clean)
@@ -287,14 +287,14 @@ func resolveExistingVenv(raw, stateRoot string) (string, *pluginapi.Error) {
 	}
 	real, err := filepath.EvalSymlinks(clean)
 	if err != nil {
-		return "", invalid("venv_path 不存在或不可访问: " + err.Error())
+		return "", invalid("虚拟环境目录 venv_path 不存在或无法访问，请先创建: " + err.Error())
 	}
 	info, err := os.Stat(real)
 	if err != nil || !info.IsDir() {
-		return "", invalid("venv_path 必须是已存在的目录")
+		return "", invalid("venv_path 需要是已存在的目录，请先创建再试")
 	}
 	if _, err := os.Stat(filepath.Join(real, "bin", "pip")); err != nil {
-		return "", invalid("venv_path 不是可用的 venv（缺少 bin/pip）")
+		return "", invalid("venv_path 不是可用的虚拟环境（缺少 bin/pip），请重建环境")
 	}
 	return real, nil
 }
@@ -356,7 +356,7 @@ func validatePackages(packages []string, optional bool) ([]string, *pluginapi.Er
 		if optional {
 			return []string{}, nil
 		}
-		return nil, invalid("缺少必填字段 packages")
+		return nil, invalid("请填写必填字段 packages（要安装的包列表）")
 	}
 	if len(packages) > MaxVenvPackages {
 		return nil, invalid(fmt.Sprintf("packages 数量 %d 超过上限 %d", len(packages), MaxVenvPackages))
@@ -364,7 +364,7 @@ func validatePackages(packages []string, optional bool) ([]string, *pluginapi.Er
 	out := make([]string, 0, len(packages))
 	for _, pkg := range packages {
 		if !packageSpecPattern.MatchString(pkg) {
-			return nil, invalid("包名非法（只允许 [A-Za-z0-9._-] 与可选 ==version；禁止空格/分号/选项）: " + pkg)
+			return nil, invalid("包名格式有误，请只用字母数字 . _ - 和可选的 ==版本号: " + pkg)
 		}
 		out = append(out, pkg)
 	}
