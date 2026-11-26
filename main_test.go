@@ -35,11 +35,27 @@ func releaseVersions(t *testing.T) (infoVersion, manifestVersion string) {
 	return read("info.json"), read("manifest.json")
 }
 
+// embeddedVersion 从内嵌清单读取握手版本（制造配置时不需要 *testing.T）。
+func embeddedVersion() string {
+	raw, err := os.ReadFile("manifest.json")
+	if err != nil {
+		panic("读 manifest.json 失败: " + err.Error())
+	}
+	var m struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		panic("解析 manifest.json 失败: " + err.Error())
+	}
+	return m.Version
+}
+
 // testConfig 构造握手与会话循环共用的一致配置（不依赖环境变量）。
+// version 取内嵌 manifest.json 的发布版本：bump 版本后测试无需改动（Gitea issue #1）。
 func testConfig() config {
 	return config{
 		id:           "runtime-python",
-		version:      "0.2.3",
+		version:      embeddedVersion(),
 		requiresKore: ">=0.1.0 <0.2.0",
 		capabilities: []string{"system:admin"},
 		root:         "/var/lib/kore/runtime-python",
@@ -83,8 +99,9 @@ func writeResponse(t *testing.T, conn net.Conn, id, reqID string, result json.Ra
 	}
 }
 
-// TestHandshake 校验 hello 首帧字段与三步握手。
+// TestHandshake 校验 hello 首帧字段与三步握手（版本只断言 semver 格式与三处同步，不锁具体值）。
 func TestHandshake(t *testing.T) {
+	infoVersion, manifestVersion := releaseVersions(t)
 	pluginConn, kernelConn := net.Pipe()
 	defer func() { _ = kernelConn.Close() }()
 	done := make(chan error, 1)
@@ -101,8 +118,14 @@ func TestHandshake(t *testing.T) {
 	if params.PluginID != "runtime-python" || params.ID != "runtime-python" {
 		t.Fatalf("plugin_id/id=%q/%q，期望 runtime-python", params.PluginID, params.ID)
 	}
-	if params.Protocol != pluginapi.Protocol || params.Version != "0.2.3" {
-		t.Fatalf("protocol/version=%q/%q 不符合 §5", params.Protocol, params.Version)
+	if params.Protocol != pluginapi.Protocol {
+		t.Fatalf("protocol=%q，期望 %q", params.Protocol, pluginapi.Protocol)
+	}
+	if !semverPattern.MatchString(params.Version) {
+		t.Fatalf("version=%q 不是 MAJOR.MINOR.PATCH", params.Version)
+	}
+	if params.Version != infoVersion || params.Version != manifestVersion {
+		t.Fatalf("握手版本=%q 与 info.json=%q / manifest.json=%q 不一致", params.Version, infoVersion, manifestVersion)
 	}
 	result, err := json.Marshal(helloResult{OK: true, Protocol: pluginapi.Protocol})
 	if err != nil {
