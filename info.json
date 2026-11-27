@@ -1,7 +1,7 @@
 {
   "id": "runtime-python",
   "name": "Python 运行时插件",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "protocol": "kore.plugin.v1",
   "lifecycle": "lazy",
   "depth_level": "basic",
@@ -20,6 +20,9 @@
     "runtime-python.venv.list": "system:read",
     "runtime-python.pip.install": "system:admin",
     "runtime-python.pip.list": "system:read",
+    "runtime-python.ext.install": "system:admin",
+    "runtime-python.ext.remove": "system:admin",
+    "runtime-python.ext.list": "system:read",
     "runtime-python.use": "system:admin",
     "runtime-python.guard.add": "system:admin",
     "runtime-python.guard.remove": "system:admin",
@@ -41,5 +44,5 @@
   "scenario_tags": [
     "app"
   ],
-  "size_bytes": 1586607
+  "size_bytes": 1606034
 }

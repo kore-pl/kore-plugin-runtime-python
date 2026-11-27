@@ -72,6 +72,12 @@ func Call(method string, params json.RawMessage, stateRoot string, exec Executor
 		return callPipInstall(params, stateRoot, exec)
 	case "pip.list":
 		return callPipList(params, stateRoot, exec)
+	case "ext.install":
+		return callExtInstall(params, stateRoot, exec)
+	case "ext.list":
+		return callExtList(params, stateRoot, exec)
+	case "ext.remove":
+		return callExtRemove(params, stateRoot, exec)
 	}
 	return nil, errNotFound(method)
 }
@@ -99,7 +105,7 @@ func businessVerb(method string) (string, bool) {
 		return "", false
 	}
 	switch verb {
-	case "versions", "info", "projects", "doctor", "paths", "use", "guard.add", "guard.list", "guard.start", "guard.stop", "guard.restart", "guard.remove", "guard.logs", "venv.create", "venv.list", "pip.install", "pip.list":
+	case "versions", "info", "projects", "doctor", "paths", "use", "guard.add", "guard.list", "guard.start", "guard.stop", "guard.restart", "guard.remove", "guard.logs", "venv.create", "venv.list", "pip.install", "pip.list", "ext.install", "ext.list", "ext.remove":
 		return verb, true
 	}
 	return "", false
@@ -157,6 +163,10 @@ func classify(err error) *pluginapi.Error {
 		return unsupported("venv 内缺少 pip（python3 -m venv 可带 --upgrade-deps 重建）")
 	case errors.Is(err, ErrVenvTimeout):
 		return upstream("venv/pip 命令超时（上限 " + VenvCommandTimeout.String() + "）")
+	case errors.Is(err, ErrExtTimeout):
+		return upstream("扩展命令超时（上限 " + VenvCommandTimeout.String() + "），请检查网络或镜像源后重试")
+	case errors.Is(err, ErrExtContainment):
+		return invalid("扩展条目经符号链接解析后越出隔离目录，请删除该软链后重试")
 	}
 	return internalErr("执行面失败: " + err.Error())
 }

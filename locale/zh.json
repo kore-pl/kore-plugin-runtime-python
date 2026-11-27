@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Python 运行时插件",
-    "description": "真实检测宿主 Python（含 pyenv/conda）、汇总解释器详情、扫描项目做健康检查、建虚拟环境与装依赖；支持默认版本切换与单机单进程守护。",
+    "description": "真实检测宿主 Python（含 pyenv/conda）、汇总解释器详情、扫描项目做健康检查、建虚拟环境与装依赖；支持把隔离扩展装进插件状态目录，不碰宿主 site-packages；支持默认版本切换与单机单进程守护。",
     "detail": "docs/DETAIL.md"
   }
 }

@@ -46,6 +46,9 @@ var expectedCapabilities = map[string]string{
 	"venv.list":     "system:read",
 	"pip.install":   "system:admin",
 	"pip.list":      "system:read",
+	"ext.install":   "system:admin",
+	"ext.remove":    "system:admin",
+	"ext.list":      "system:read",
 }
 
 // TestMethodCapabilitiesMatchDispatch 双向校验 info.json 的方法级能力声明与分发表：

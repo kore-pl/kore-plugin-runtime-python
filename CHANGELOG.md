@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0] - 2026-11-28
+
+### Added
+
+- **运行时扩展管理（隔离安装，不碰宿主）**：新增 `runtime-python.ext.install` / `ext.list` / `ext.remove` 三方法（DESIGN-PY-EXT.md 方案，产品内 runtime 三件套对称补齐）。install 走固定 argv `python3 -m pip install --target <state>/global/py_ext --no-input --disable-pip-version-check <包名...>`（无 shell、无 `--user` / `--break-system-packages`，不写宿主 site-packages、不设 PYTHONPATH）；remove 因 pip 25.1.1 的 `uninstall` 无 `--target`，改为隔离前缀内的**受控文件删除**（PEP 503 归一 + `Rel`/`EvalSymlinks` containment + 只删 prefix 内直接子项，无 argv、无子进程）；list 只读 `*.dist-info/METADATA`（`*.egg-info/PKG-INFO` 兜底），不调 pip。与既有 `venv.*` / `pip.*` 并存、边界清晰。
+- 六要素复用本仓护栏：隔离前缀 `<state>/global/py_ext` 固定、不接受调用方路径（四坏 root + `<global>` / `<py_ext>` 软链逃逸 → `E_INVALID`）；包白名单复用 `venv.go` 的 `packageSpecPattern`；120s 超时 `ErrExtTimeout → E_UPSTREAM`；64 KiB 首尾截断复用 `truncatePipOutput`；`extFake` + `realExtManager{runner}` 假执行面全测（固定 argv、注入/越界校验不触达执行面、超长截断、METADATA 解析、受控删除 containment）。
+- `info.json` 方法级能力 17 → 20（`ext.install` / `ext.remove` = `system:admin`，`ext.list` = `system:read`），插件级能力不变、不新增 root_action（ADR-0018 插件永不持 root）；主壳 `web/runtimes.js` 的 `EXT_CFG` 加 `runtime-python` 条目复用现成扩展面板（不新增一级控件 / CSS）。版本按 feat → minor 0.4.2 → 0.5.0。
+
 ## [0.4.2] - 2026-11-26
 
 ### 修复
